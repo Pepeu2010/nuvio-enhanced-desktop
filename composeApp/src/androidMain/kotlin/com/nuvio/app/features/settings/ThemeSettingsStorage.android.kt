@@ -66,6 +66,13 @@ actual object ThemeSettingsStorage {
             if (prefs.contains(key)) prefs.getBoolean(key, false) else null
         }
 
+    actual fun loadNavigationMotion(): String? =
+        preferences?.getString(ProfileScopedKey.of("enhanced_navigation_motion"), null)
+
+    actual fun saveNavigationMotion(mode: String) {
+        preferences?.edit()?.putString(ProfileScopedKey.of("enhanced_navigation_motion"), mode)?.apply()
+    }
+
     actual fun saveAmoledEnabled(enabled: Boolean) {
         preferences
             ?.edit()

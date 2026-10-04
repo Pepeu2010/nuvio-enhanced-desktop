@@ -32,6 +32,13 @@ actual object ThemeSettingsStorage {
     actual fun loadSelectedTheme(): String? =
         NSUserDefaults.standardUserDefaults.stringForKey(ProfileScopedKey.of(selectedThemeKey))
 
+    actual fun loadNavigationMotion(): String? =
+        NSUserDefaults.standardUserDefaults.stringForKey(ProfileScopedKey.of("enhanced_navigation_motion"))
+
+    actual fun saveNavigationMotion(mode: String) {
+        NSUserDefaults.standardUserDefaults.setObject(mode, forKey = ProfileScopedKey.of("enhanced_navigation_motion"))
+    }
+
     actual fun saveSelectedTheme(themeName: String) {
         NSUserDefaults.standardUserDefaults.setObject(themeName, forKey = ProfileScopedKey.of(selectedThemeKey))
     }

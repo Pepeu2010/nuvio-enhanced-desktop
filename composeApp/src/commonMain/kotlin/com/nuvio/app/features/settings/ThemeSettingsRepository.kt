@@ -1,6 +1,7 @@
 package com.nuvio.app.features.settings
 
 import com.nuvio.app.core.ui.AppTheme
+import com.nuvio.app.core.ui.NavigationMotion
 import com.nuvio.app.core.ui.CustomThemeColors
 import com.nuvio.app.core.ui.NativeTabBridge
 import com.nuvio.app.core.ui.ThemeColors
@@ -30,6 +31,9 @@ object ThemeSettingsRepository {
 
     private val _amoledEnabled = MutableStateFlow(false)
     val amoledEnabled: StateFlow<Boolean> = _amoledEnabled.asStateFlow()
+
+    private val _navigationMotion = MutableStateFlow(NavigationMotion.FULL)
+    val navigationMotion: StateFlow<NavigationMotion> = _navigationMotion.asStateFlow()
 
     private val _liquidGlassNativeTabBarEnabled = MutableStateFlow(false)
     val liquidGlassNativeTabBarEnabled: StateFlow<Boolean> = _liquidGlassNativeTabBarEnabled.asStateFlow()
@@ -66,6 +70,7 @@ object ThemeSettingsRepository {
         _customThemePreference.value = CustomThemeColors.Default
         _customThemeColors.value = CustomThemeColors.solid(CustomThemeColors.Default.second)
         _amoledEnabled.value = false
+        _navigationMotion.value = NavigationMotion.FULL
         _liquidGlassNativeTabBarEnabled.value = false
         _desktopNavigationLayout.value = DesktopNavigationLayout.Default
         NativeTabBridge.publishAccentColor(ThemeColors.White.nativeAccentHex)
@@ -91,6 +96,7 @@ object ThemeSettingsRepository {
         _customThemePreference.value = CustomThemeColors.decode(ThemeSettingsStorage.loadCustomThemeColors())
         applyEffectiveTheme()
         _amoledEnabled.value = ThemeSettingsStorage.loadAmoledEnabled() ?: false
+        _navigationMotion.value = NavigationMotion.fromName(ThemeSettingsStorage.loadNavigationMotion())
         val liquidGlassEnabled = ThemeSettingsStorage.loadLiquidGlassNativeTabBarEnabled() ?: false
         _liquidGlassNativeTabBarEnabled.value = liquidGlassEnabled
         NativeTabBridge.publishLiquidGlassEnabled(liquidGlassEnabled)
@@ -130,6 +136,13 @@ object ThemeSettingsRepository {
         if (_amoledEnabled.value == enabled) return
         _amoledEnabled.value = enabled
         ThemeSettingsStorage.saveAmoledEnabled(enabled)
+    }
+
+    fun setNavigationMotion(mode: NavigationMotion) {
+        ensureLoaded()
+        if (_navigationMotion.value == mode) return
+        ThemeSettingsStorage.saveNavigationMotion(mode.name)
+        _navigationMotion.value = mode
     }
 
     fun setLiquidGlassNativeTabBar(enabled: Boolean) {

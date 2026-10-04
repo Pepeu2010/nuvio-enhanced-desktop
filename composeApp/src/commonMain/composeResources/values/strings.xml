@@ -2481,4 +2481,9 @@
     <string name="movie_status_rumored">Rumored</string>
     <string name="movie_status_in_production">In Production</string>
     <string name="movie_status_post_production">Post Production</string>
+    <string name="enhanced_navigation_motion">Navigation motion</string>
+    <string name="enhanced_navigation_motion_description">Controls transitions between screens. Other effects keep their existing settings.</string>
+    <string name="enhanced_motion_full">Full</string>
+    <string name="enhanced_motion_reduced">Reduced</string>
+    <string name="enhanced_motion_off">Off</string>
 </resources>

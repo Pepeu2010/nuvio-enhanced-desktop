@@ -1,143 +1,67 @@
-> **Nuvio Enhanced Desktop — unofficial development fork.**
-> Read [FORK_NOTICE.md](FORK_NOTICE.md) and the
-> [project milestone status](https://github.com/Pepeu2010/nuvio-enhanced).
-> The upstream documentation below is retained for compatibility reference.
+# Nuvio Enhanced Desktop
 
-<div align="center">
+**Uma evolução open source do Nuvio para PC, com melhorias integradas ao cliente nativo existente.** Este é um fork independente e não oficial de [NuvioMedia/NuvioDesktop](https://github.com/NuvioMedia/NuvioDesktop).
 
-  <img src="composeApp/src/commonMain/composeResources/drawable/app_logo_wordmark.png" alt="Nuvio" width="300" />
-  <br />
-  <br />
+A base continua em Kotlin Multiplatform/Compose, commonMain e libmpv/JNI, com a integração WebView2 existente no Windows. Conta, perfis, biblioteca, progresso, addons Stremio, legendas e downloads continuam usando os módulos atuais. O objetivo é ampliar o Nuvio preservando seus contratos.
 
-  [![Contributors][contributors-shield]][contributors-url]
-  [![Forks][forks-shield]][forks-url]
-  [![Stargazers][stars-shield]][stars-url]
-  [![Issues][issues-shield]][issues-url]
-  [![License][license-shield]][license-url]
+## Download
 
-  <p>
-    A desktop media app for Windows, macOS, and Linux.
-    <br />
-    Browse, organize, and play media from sources you add.
-  </p>
+[Baixar a pré-release do Nuvio Enhanced](https://github.com/Pepeu2010/nuvio-enhanced/releases/tag/v0.1.0-alpha.1): instalador **Windows x64 MSI**, fontes e checksums. Essa release contém a fundação 0-C; as versões internas são herdadas do upstream.
 
-</div>
+O código de main evolui por incrementos. A preferência local por perfil **Movimento de navegação** é o primeiro incremento 1-A.1: completo, reduzido e desligado para as transições revisadas. Ela ainda não está na release 0-C. Home, previews e os demais efeitos serão tratados nas etapas seguintes.
 
-## ⚠️ Alpha Software - Slow Development - Testers Only
+## O que muda e o que vem depois
 
-Nuvio Desktop is currently in alpha and is intended only for testers. It is under development and is not suitable for daily use.
+A fundação já tem instalação/dados/cache/updater próprios, relatórios externos de falhas desligados por padrão, redaction nos diagnósticos revisados e correção da recompilação da ponte Windows.
 
-Expect breaking changes with every update. Features, settings, stored data, and compatibility may change or stop working without notice. Do not rely on this build as your primary media app, and report any issues you encounter during testing.
+Estão previstos: identidade e interface cinematográficas, Home/hero aprimorados, Profile Studio com avatares locais, evolução do preview, Ambient UI, timeline com thumbnails reais/filmstrip/bookmarks, Source Intelligence, cache Auto/configurável e, depois, Live TV/EPG, Scene Info e controle local pelo celular.
 
-## About
+Esses recursos são integrados aos componentes existentes conforme o [roadmap](https://github.com/Pepeu2010/nuvio-enhanced/blob/main/docs/ROADMAP.md). Não são todos recursos prontos. A fundação passou em 31 testes direcionados Desktop; o baseline completo registrou 26 falhas herdadas e 1 teste ignorado. Instalação, login/sync, playback e QA completo ainda precisam de validação. [Evidências e limites](https://github.com/Pepeu2010/nuvio-enhanced/blob/main/docs/FOUNDATION.md).
 
-Nuvio Desktop is a media client for browsing metadata, managing collections and watch progress, downloading media, and playing streams from user-installed extensions or user-provided sources.
+## Compilar e executar
 
-## Installation
-
-Download the latest desktop build from [GitHub Releases](https://github.com/NuvioMedia/NuvioDesktop/releases/latest).
-
-Release packages are provided for supported desktop platforms:
-
-- Windows: MSI installer
-- macOS: DMG installer
-- Linux: DEB, RPM, FLATPAK and AppImage available.
-
-## Development
-
-```bash
-git clone https://github.com/NuvioMedia/NuvioDesktop.git
-cd NuvioDesktop
-```
-
-Run from source:
-
-```bash
-./gradlew :composeApp:run
-```
-
-On Windows PowerShell:
+Use JDK 17 e Git LFS. As versões de ferramentas, configurações públicas de desenvolvimento e instruções do SDK WebView2 são registradas em [BASELINE.md](https://github.com/Pepeu2010/nuvio-enhanced/blob/main/docs/BASELINE.md). O workspace central oferece scripts para restaurar/provisionar os checkouts sem guardar credenciais no Git.
 
 ```powershell
-.\gradlew.bat :composeApp:run
+git clone https://github.com/Pepeu2010/nuvio-enhanced-desktop.git
+cd nuvio-enhanced-desktop
+git lfs pull
+
+# Configure o SDK WebView2 local conforme BASELINE.md
+.\gradlew.bat :composeApp:run --no-configuration-cache "-Pnuvio.webview2.dir=<caminho do SDK>"
+.\gradlew.bat :composeApp:packageReleaseMsi --no-configuration-cache "-Pnuvio.webview2.dir=<caminho do SDK>"
 ```
 
-Build a release package for the current host:
+Em hosts compatíveis, os comandos de packaging upstream permanecem:
 
 ```bash
 ./gradlew :composeApp:packageReleaseDistributionForCurrentOS
-```
-
-Platform-specific packaging:
-
-```bash
-# Windows
-./gradlew :composeApp:packageReleaseMsi --rerun-tasks
-
-# macOS
+# macOS: execute no macOS
 ./scripts/build-macos-release-dmgs.sh --package-only
-
-# Linux
+# Linux: execute no Linux
 ./gradlew :composeApp:packageReleaseDeb
 ```
 
-## Project Structure
+Ainda não há pacotes Linux/macOS publicados pelo fork. Não remova recursos ou troque o player para simplificar um build.
 
-- `composeApp/` contains the app code.
-- `composeApp/src/commonMain/` contains shared UI, features, repositories, and platform-agnostic logic.
-- `composeApp/src/desktopMain/` contains desktop-specific integrations.
-- `composeApp/Configuration/DesktopVersion.properties` contains the desktop release version and build code.
+## Organização e versões
 
-## Versioning
+- `composeApp/src/commonMain/`: UI, features, repositories e regras compartilhadas existentes.
+- `composeApp/src/desktopMain/`: integrações de plataforma.
+- `composeApp/Configuration/DesktopVersion.properties`: versão e código de build Desktop.
 
-Desktop versions are set in `composeApp/Configuration/DesktopVersion.properties`.
-
-```properties
-VERSION_NAME=0.1.1-alpha
-VERSION_CODE=1
-```
-
-Use the version helper when changing desktop release versions:
+O helper original continua disponível:
 
 ```bash
-./scripts/set-version.sh --desktop 0.1.2-alpha --desktop-code 2
 ./scripts/set-version.sh --show
+# Exemplo para uma futura entrega, não a versão instalada atual:
+./scripts/set-version.sh --desktop 0.1.28-alpha --desktop-code 28
 ```
 
-## Legal & DMCA
+Antes de criar código novo, localize o componente relacionado e seu ponto de extensão. Teste, compile, valide visualmente e documente. O fluxo de conta/sync não deve ser substituído nem receber endpoints inventados.
 
-Nuvio functions solely as a client-side interface for browsing metadata and playing media provided by user-installed extensions and/or user-provided sources. It is intended for content the user owns or is otherwise authorized to access.
+## Licença e créditos
 
-Nuvio is not affiliated with any third-party extensions, catalogs, sources, or content providers. It does not host, store, or distribute any media content.
+[GPL-3.0](LICENSE), copyrights e avisos de terceiros preservados. Leia [FORK_NOTICE.md](FORK_NOTICE.md). O histórico completo conserva a documentação original do upstream. Obrigado aos contribuidores do Nuvio pela base do projeto.
 
-For comprehensive legal information, including our full disclaimer, third-party extension policy, and DMCA/Copyright information, please visit our [Legal & Disclaimer Page](https://nuvioapp.space/legal).
-
-## Built With
-
-- Kotlin Multiplatform
-- Compose Multiplatform
-- Kotlin
-- Compose Desktop packaging
-- Native desktop player integrations
-
-## Star History
-
-<a href="https://www.star-history.com/#NuvioMedia/NuvioDesktop&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=NuvioMedia/NuvioDesktop&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=NuvioMedia/NuvioDesktop&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=NuvioMedia/NuvioDesktop&type=date&legend=top-left" />
- </picture>
-</a>
-
-<!-- MARKDOWN LINKS & IMAGES -->
-[contributors-shield]: https://img.shields.io/github/contributors/NuvioMedia/NuvioDesktop.svg?style=for-the-badge
-[contributors-url]: https://github.com/NuvioMedia/NuvioDesktop/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/NuvioMedia/NuvioDesktop.svg?style=for-the-badge
-[forks-url]: https://github.com/NuvioMedia/NuvioDesktop/network/members
-[stars-shield]: https://img.shields.io/github/stars/NuvioMedia/NuvioDesktop.svg?style=for-the-badge
-[stars-url]: https://github.com/NuvioMedia/NuvioDesktop/stargazers
-[issues-shield]: https://img.shields.io/github/issues/NuvioMedia/NuvioDesktop.svg?style=for-the-badge
-[issues-url]: https://github.com/NuvioMedia/NuvioDesktop/issues
-[license-shield]: https://img.shields.io/github/license/NuvioMedia/NuvioDesktop.svg?style=for-the-badge
-[license-url]: https://github.com/NuvioMedia/NuvioDesktop/blob/main/LICENSE
+O aplicativo não fornece canais, listas ou conteúdo protegido. Use fontes legítimas que você configure e tenha autorização para acessar. Este fork não afirma vínculo com providers ou endosso do NuvioMedia.

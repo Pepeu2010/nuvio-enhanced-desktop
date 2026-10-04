@@ -15,6 +15,24 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+/** Local navigation preference; deliberately excluded from the official sync payload. */
+enum class NavigationMotion {
+    FULL, REDUCED, OFF;
+
+    val allowsSpatialEffects: Boolean get() = this == FULL
+
+    fun durationMillis(fullDuration: Int): Int = when (this) {
+        FULL -> fullDuration.coerceAtLeast(0)
+        REDUCED -> fullDuration.coerceIn(0, 120)
+        OFF -> 0
+    }
+
+    companion object {
+        fun fromName(value: String?): NavigationMotion =
+            entries.firstOrNull { it.name == value } ?: FULL
+    }
+}
+
 object NuvioTokens {
     object Space {
         val none = 0.dp

@@ -27,6 +27,7 @@ import nuvio.composeapp.generated.resources.jetbrains_sans_semibold
 import org.jetbrains.compose.resources.Font
 
 val LocalAppTheme = staticCompositionLocalOf { AppTheme.WHITE }
+val LocalNavigationMotion = androidx.compose.runtime.compositionLocalOf { NavigationMotion.FULL }
 val LocalThemePalette = staticCompositionLocalOf { ThemeColors.White }
 
 val MaterialTheme.themePalette: ThemeColorPalette
@@ -218,6 +219,7 @@ fun NuvioTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     appTheme: AppTheme = AppTheme.WHITE,
     amoled: Boolean = false,
+    navigationMotion: NavigationMotion = NavigationMotion.FULL,
     desktopUiScale: Float = NuvioDesktopMinUiScale,
     customThemeColors: CustomThemeColors = CustomThemeColors.Default,
     content: @Composable () -> Unit,
@@ -244,6 +246,7 @@ fun NuvioTheme(
         LocalNuvioTypeScale provides NuvioTypeTokens,
         LocalRippleConfiguration provides NuvioRippleConfiguration,
         LocalAppTheme provides appTheme,
+        LocalNavigationMotion provides navigationMotion,
         LocalThemePalette provides palette,
     ) {
         MaterialTheme(

@@ -58,6 +58,13 @@ internal actual object ThemeSettingsStorage {
     actual fun loadAmoledEnabled(): Boolean? =
         store.getBoolean(ProfileScopedKey.of(amoledEnabledKey))
 
+    actual fun loadNavigationMotion(): String? =
+        store.getString(ProfileScopedKey.of("enhanced_navigation_motion"))
+
+    actual fun saveNavigationMotion(mode: String) {
+        store.putString(ProfileScopedKey.of("enhanced_navigation_motion"), mode)
+    }
+
     actual fun saveAmoledEnabled(enabled: Boolean) {
         store.putBoolean(ProfileScopedKey.of(amoledEnabledKey), enabled)
     }

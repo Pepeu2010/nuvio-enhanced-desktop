@@ -213,11 +213,18 @@ internal fun MainAppContent(
 ) {
         val navBackStack = rememberNavBackStack(navigationSavedStateConfiguration, initialRoute)
         val posterNavigation = remember { PosterNavigationState() }
+        val navigationMotion = com.nuvio.app.core.ui.LocalNavigationMotion.current
+        val navigationDuration = navigationMotion.durationMillis(com.nuvio.app.core.ui.NuvioTokens.Motion.normalMillis)
+        LaunchedEffect(navigationMotion) {
+            // Land lifted artwork immediately if motion is reduced while navigating.
+            if (!navigationMotion.allowsSpatialEffects) posterNavigation.clear()
+        }
         val metaScreenSettings by remember {
             MetaScreenSettingsRepository.ensureLoaded()
             MetaScreenSettingsRepository.uiState
         }.collectAsStateWithLifecycle()
         val posterNavigationEnabled = supportsPosterNavigationMotion &&
+            navigationMotion.allowsSpatialEffects &&
             metaScreenSettings.posterTransitionEnabled && onNavigate == null
         val routeDisposalDecorator = remember {
             RouteDisposalNavEntryDecorator<NavKey> { key ->
@@ -1279,6 +1286,15 @@ internal fun MainAppContent(
                 ) {
                 NavDisplay(
                     backStack = navBackStack,
+                    transitionSpec = {
+                        fadeIn(tween(navigationDuration)) togetherWith fadeOut(tween(navigationDuration))
+                    },
+                    popTransitionSpec = {
+                        fadeIn(tween(navigationDuration)) togetherWith fadeOut(tween(navigationDuration))
+                    },
+                    predictivePopTransitionSpec = {
+                        fadeIn(tween(navigationDuration)) togetherWith fadeOut(tween(navigationDuration))
+                    },
                     modifier = Modifier.fillMaxSize(),
                     onBack = {
                         val routeAtRequest = navController.currentRoute
@@ -1504,11 +1520,11 @@ internal fun MainAppContent(
                 entry<StreamRoute>(
                     metadata = if (isDesktop) {
                         NavDisplay.transitionSpec {
-                            fadeIn(animationSpec = tween(160)) togetherWith
-                                fadeOut(animationSpec = tween(160))
+                            fadeIn(animationSpec = tween(navigationMotion.durationMillis(160))) togetherWith
+                                fadeOut(animationSpec = tween(navigationMotion.durationMillis(160)))
                         } + NavDisplay.popTransitionSpec {
-                            fadeIn(animationSpec = tween(160)) togetherWith
-                                fadeOut(animationSpec = tween(160))
+                            fadeIn(animationSpec = tween(navigationMotion.durationMillis(160))) togetherWith
+                                fadeOut(animationSpec = tween(navigationMotion.durationMillis(160)))
                         }
                     } else {
                         emptyMap()
@@ -1528,11 +1544,11 @@ internal fun MainAppContent(
                 entry<PlayerRoute>(
                     metadata = if (isIos) {
                         NavDisplay.transitionSpec {
-                            fadeIn(animationSpec = tween(220)) togetherWith
-                                fadeOut(animationSpec = tween(220))
+                            fadeIn(animationSpec = tween(navigationMotion.durationMillis(220))) togetherWith
+                                fadeOut(animationSpec = tween(navigationMotion.durationMillis(220)))
                         } + NavDisplay.popTransitionSpec {
-                            fadeIn(animationSpec = tween(220)) togetherWith
-                                fadeOut(animationSpec = tween(220))
+                            fadeIn(animationSpec = tween(navigationMotion.durationMillis(220))) togetherWith
+                                fadeOut(animationSpec = tween(navigationMotion.durationMillis(220)))
                         }
                     } else {
                         emptyMap()

@@ -9,6 +9,8 @@ internal expect object ThemeSettingsStorage {
     fun saveCustomThemeColors(colors: String)
     fun loadAmoledEnabled(): Boolean?
     fun saveAmoledEnabled(enabled: Boolean)
+    fun loadNavigationMotion(): String?
+    fun saveNavigationMotion(mode: String)
     fun loadLiquidGlassNativeTabBarEnabled(): Boolean?
     fun saveLiquidGlassNativeTabBarEnabled(enabled: Boolean)
     fun loadDesktopNavigationLayout(): String?

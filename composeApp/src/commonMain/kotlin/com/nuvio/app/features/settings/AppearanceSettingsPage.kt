@@ -28,6 +28,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.isDesktop
 import com.nuvio.app.core.ui.floatingNavigationGlowSupported
 import com.nuvio.app.core.ui.AppTheme
+import com.nuvio.app.core.ui.NavigationMotion
+import nuvio.composeapp.generated.resources.enhanced_navigation_motion
+import nuvio.composeapp.generated.resources.enhanced_navigation_motion_description
+import nuvio.composeapp.generated.resources.enhanced_motion_full
+import nuvio.composeapp.generated.resources.enhanced_motion_reduced
+import nuvio.composeapp.generated.resources.enhanced_motion_off
 import com.nuvio.app.isIos
 import com.nuvio.app.core.ui.NuvioBottomSheetActionRow
 import com.nuvio.app.core.ui.NuvioBottomSheetDivider
@@ -123,6 +129,8 @@ internal fun LazyListScope.appearanceSettingsContent(
     }
     item {
         var showLanguageSheet by rememberSaveable { mutableStateOf(false) }
+        var showMotionPicker by rememberSaveable { mutableStateOf(false) }
+        val navigationMotion by ThemeSettingsRepository.navigationMotion.collectAsStateWithLifecycle()
         var showLanguageRestartDialog by remember { mutableStateOf(false) }
         val layoutDirection = LocalLayoutDirection.current
         var showDesktopNavigationSheet by rememberSaveable { mutableStateOf(false) }
@@ -158,6 +166,13 @@ internal fun LazyListScope.appearanceSettingsContent(
                     )
                 }
                 if (isDesktop) {
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.enhanced_navigation_motion),
+                        description = stringResource(navigationMotion.labelRes),
+                        isTablet = isTablet,
+                        onClick = { showMotionPicker = true },
+                    )
                     SettingsGroupDivider(isTablet = isTablet)
                     val desktopNavDescription = if (isTablet) {
                         stringResource(desktopNavigationLayout.labelRes)
@@ -240,6 +255,21 @@ internal fun LazyListScope.appearanceSettingsContent(
                     showDesktopNavigationSheet = false
                 },
                 onDismiss = { showDesktopNavigationSheet = false },
+            )
+        }
+
+        if (showMotionPicker) {
+            TrackingAdaptivePicker(
+                isTablet = isTablet,
+                title = stringResource(Res.string.enhanced_navigation_motion),
+                subtitle = stringResource(Res.string.enhanced_navigation_motion_description),
+                selectedValue = navigationMotion,
+                options = NavigationMotion.entries.map { TrackingPickerOption(it, stringResource(it.labelRes)) },
+                onSelected = {
+                    ThemeSettingsRepository.setNavigationMotion(it)
+                    showMotionPicker = false
+                },
+                onDismiss = { showMotionPicker = false },
             )
         }
 
@@ -432,6 +462,13 @@ private data class AppLanguageSheetOption(
     val language: AppLanguage,
     val labelRes: StringResource,
 )
+
+private val NavigationMotion.labelRes: StringResource
+    get() = when (this) {
+        NavigationMotion.FULL -> Res.string.enhanced_motion_full
+        NavigationMotion.REDUCED -> Res.string.enhanced_motion_reduced
+        NavigationMotion.OFF -> Res.string.enhanced_motion_off
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
