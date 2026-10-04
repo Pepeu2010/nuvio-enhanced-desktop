@@ -6,9 +6,9 @@ A base continua em Kotlin Multiplatform/Compose, commonMain e libmpv/JNI, com a 
 
 ## Download
 
-[Baixar a pré-release do Nuvio Enhanced](https://github.com/Pepeu2010/nuvio-enhanced/releases/tag/v0.1.0-alpha.1): instalador **Windows x64 MSI**, fontes e checksums. Essa release contém a fundação 0-C; as versões internas são herdadas do upstream.
+[Baixar a pré-release do Nuvio Enhanced](https://github.com/Pepeu2010/nuvio-enhanced/releases/tag/v0.1.0-alpha.2): instalador **Windows x64 MSI**, fontes e checksums. Essa release contém a fundação 0-C e o incremento 1-A.1; as versões internas são herdadas do upstream. Para trocar a alpha.1 pela alpha.2, remova a instalação anterior do Nuvio Enhanced antes de instalar o novo MSI, pois ambos ainda mantêm a mesma versão/identidade de produto.
 
-O código de main evolui por incrementos. A preferência local por perfil **Movimento de navegação** é o primeiro incremento 1-A.1: completo, reduzido e desligado para as transições revisadas. Ela ainda não está na release 0-C. Home, previews e os demais efeitos serão tratados nas etapas seguintes.
+O código de main evolui por incrementos. A preferência local por perfil **Movimento de navegação** integra a alpha.2: completo, reduzido e desligado para as transições revisadas. Home, previews e os demais efeitos serão tratados nas etapas seguintes. O milestone visual completo ainda está em execução.
 
 ## O que muda e o que vem depois
 
