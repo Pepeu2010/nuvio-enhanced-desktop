@@ -220,11 +220,19 @@ object MetaDetailsRepository {
         val metaLookupId = resolveMetaLookupId(itemId = id, itemType = type)
         val manifests = findReadyMetaManifests(type = type, id = metaLookupId)
 
+        var originalEdition: MetaDetails? = null
         for (manifest in manifests) {
             val result = withTimeoutOrNull(FETCH_TIMEOUT_MS) {
                 tryFetchMeta(manifest, type, metaLookupId, includeMdbList = false)
             }
             if (result != null) {
+                if (com.nuvio.app.features.search.isIludidaWork(result.id) &&
+                    !com.nuvio.app.features.search.hasIludidaBrazilianSeason(
+                        result.id, result.videos.map { it.season to it.episode },
+                    )) {
+                    if (originalEdition == null) originalEdition = result
+                    continue
+                }
                 if (cacheResult) {
                     cachedMetaByRequestKey[requestKey] = CachedMetaEntry(baseMeta = result)
                 }
@@ -232,7 +240,7 @@ object MetaDetailsRepository {
             }
         }
 
-        return tryFetchTmdbFallbackMeta(type = type, id = id)?.also { result ->
+        return (originalEdition ?: tryFetchTmdbFallbackMeta(type = type, id = id))?.also { result ->
             if (cacheResult) {
                 cachedMetaByRequestKey[requestKey] = CachedMetaEntry(baseMeta = result)
             }
@@ -564,7 +572,9 @@ object MetaDetailsRepository {
             it.ensureLoaded()
             it.patternForScreen(com.nuvio.app.core.poster.CustomPosterScreen.DETAILS)
         }
-        val base = withCustomPosterUrls(posterPattern)
+        val base = withCustomPosterUrls(posterPattern).let {
+            it.copy(name = com.nuvio.app.features.search.brazilianTitle(it.id, it.type, it.name))
+        }
         if (!HomeCatalogSettingsRepository.snapshot().hideUnreleasedContent) return base
         val todayIsoDate = CurrentDateProvider.todayIsoDate()
         val releasedMoreLikeThis = base.moreLikeThis.filterReleasedItems(todayIsoDate)

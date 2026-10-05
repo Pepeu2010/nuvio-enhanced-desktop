@@ -478,7 +478,7 @@ std::wstring webViewUserDataDirectory() {
     }
     std::wstring directory(localAppData);
     CoTaskMemFree(localAppData);
-    directory += L"\\NuvioEnhanced\\WebView2";
+    directory += L"\\Telumia\\WebView2";
     int createResult = SHCreateDirectoryExW(nullptr, directory.c_str(), nullptr);
     if (createResult != ERROR_SUCCESS && createResult != ERROR_ALREADY_EXISTS && createResult != ERROR_FILE_EXISTS) {
         throw std::runtime_error("Failed to create WebView2 user data directory");
@@ -547,7 +547,7 @@ struct MpvApi {
             candidates.push_back(moduleDir + L"\\libmpv-2.dll");
         }
         candidates.push_back(L"libmpv-2.dll");
-        candidates.push_back(L"C:\\Program Files (x86)\\NuvioEnhanced\\app\\native\\libmpv-2.dll");
+        candidates.push_back(L"C:\\Program Files (x86)\\Telumia\\app\\native\\libmpv-2.dll");
         candidates.push_back(L"C:\\msys64\\ucrt64\\bin\\libmpv-2.dll");
 
         for (const std::wstring &candidate : candidates) {

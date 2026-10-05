@@ -444,7 +444,8 @@ object SearchRepository {
 
     private suspend fun SearchCatalogRequest.toSection(forceRefresh: Boolean): HomeCatalogSection {
         val manifest = requireNotNull(addon.manifest)
-        val pages = brazilianSearchQueries(query).mapNotNull { alias ->
+        val queries = if (type.lowercase() in setOf("series", "tv")) brazilianSearchQueries(query) else listOf(query)
+        val pages = queries.mapNotNull { alias ->
             try {
                 fetchCatalogPage(
                     manifestUrl = manifest.transportUrl, type = type,
@@ -453,7 +454,7 @@ object SearchRepository {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                if (brazilianSearchQueries(query).size == 1) throw error
+                if (queries.size == 1) throw error
                 null
             }
         }
