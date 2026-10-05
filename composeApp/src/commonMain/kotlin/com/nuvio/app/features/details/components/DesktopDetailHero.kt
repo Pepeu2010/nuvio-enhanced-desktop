@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -198,6 +199,7 @@ fun DesktopDetailBackdrop(
 @Composable
 fun DesktopDetailHero(
     meta: MetaDetails,
+    viewportHeight: Dp,
     showOverallRatings: Boolean,
     isMdbListActive: Boolean,
     playButtonLabel: String,
@@ -216,6 +218,7 @@ fun DesktopDetailHero(
     onWatchedClick: () -> Unit,
     onSaveClick: () -> Unit,
     onSaveLongClick: (() -> Unit)?,
+    onTrailerClick: (() -> Unit)? = null,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val space = NuvioTokens.Space
@@ -230,11 +233,12 @@ fun DesktopDetailHero(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .height(660.dp)
+            .heightIn(min = (viewportHeight * 0.82f).coerceIn(420.dp, 760.dp))
             .onSizeChanged { onHeightChanged(it.height) },
     ) {
         val actionHorizontalInset = fullscreenActionHorizontalInsetForWidth(maxWidth.value)
         val pageHorizontalPadding = desktopPageHorizontalPaddingForWidth(maxWidth.value)
+        val titleSize = if (maxWidth < 1440.dp) 48.sp else 64.sp
 
         Column(
             modifier = Modifier
@@ -243,6 +247,7 @@ fun DesktopDetailHero(
                 .padding(
                     start = pageHorizontalPadding,
                     end = space.s32,
+                    top = 104.dp,
                     bottom = space.s40,
                 ),
         ) {
@@ -261,8 +266,8 @@ fun DesktopDetailHero(
                 Text(
                     text = meta.name,
                     style = MaterialTheme.typography.displayLarge.copy(
-                        fontSize = NuvioTokens.Type.displayMd,
-                        lineHeight = NuvioTokens.LineHeight.displayMd,
+                        fontSize = titleSize,
+                        lineHeight = titleSize * 1.05f,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = NuvioTokens.LetterSpacing.none,
                     ),
@@ -296,17 +301,7 @@ fun DesktopDetailHero(
             }
             meta.description?.takeIf { it.isNotBlank() }?.let { synopsis ->
                 Spacer(modifier = Modifier.height(space.s16))
-                Text(
-                    text = synopsis,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = NuvioTokens.Type.bodyLg,
-                        lineHeight = NuvioTokens.LineHeight.bodyLg,
-                        letterSpacing = NuvioTokens.LetterSpacing.none,
-                    ),
-                    color = colorScheme.onSurface,
-                    maxLines = 4,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                CinematicSynopsis(meta.name, synopsis, viewportHeight)
             }
             Spacer(modifier = Modifier.height(space.s28))
             val shuffleAction = onShuffleClick?.let { onClick ->
@@ -317,7 +312,21 @@ fun DesktopDetailHero(
                     onClick = onClick,
                 )
             }
-            DetailActionButtons(
+            if (meta.type.equals("movie", ignoreCase = true)) {
+                CinematicMovieActions(
+                    playLabel = if (isPrimaryPlayEnabled) playButtonLabel else stringResource(Res.string.playback_unavailable),
+                    playEnabled = isPrimaryPlayEnabled,
+                    isSaved = isSaved,
+                    isWatched = isWatched,
+                    onPlay = onPlayClick,
+                    onPlayLongClick = onPlayLongClick,
+                    onSave = onSaveClick,
+                    onSaveLongClick = onSaveLongClick,
+                    onWatched = onWatchedClick,
+                    onTrailer = onTrailerClick,
+                    modifier = Modifier.widthIn(max = 680.dp),
+                )
+            } else DetailActionButtons(
                 modifier = Modifier.widthIn(max = 520.dp),
                 playLabel = if (isPrimaryPlayEnabled) playButtonLabel else stringResource(Res.string.playback_unavailable),
                 playEnabled = isPrimaryPlayEnabled,

@@ -1302,6 +1302,8 @@ fun MetaDetailsScreen(
                                 ) {
                                     DesktopDetailHero(
                                         meta = meta,
+                                        viewportHeight = viewportHeight,
+                                        onTrailerClick = heroTrailerCandidate?.let { trailer -> { resolveTrailer(trailer) } },
                                         showOverallRatings = metaScreenSettingsUiState.showOverallRatings,
                                         isMdbListActive = mdbListSettings.isActive,
                                         playButtonLabel = playButtonLabel,

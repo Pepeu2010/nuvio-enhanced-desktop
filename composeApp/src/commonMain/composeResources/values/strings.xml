@@ -2491,4 +2491,6 @@
     <string name="enhanced_intensity_subtle">Subtle</string>
     <string name="enhanced_intensity_standard">Standard</string>
     <string name="enhanced_intensity_cinematic">Cinematic</string>
+    <string name="telumia_read_synopsis">Read full synopsis</string>
+    <string name="telumia_watch_trailer">Trailer</string>
 </resources>
