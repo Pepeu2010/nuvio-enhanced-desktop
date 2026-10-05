@@ -14,6 +14,8 @@ O incremento **1-A.2 em main, ainda fora da alpha.2**, estende essa política ao
 
 O incremento **1-A.3, também fora da alpha.2**, acrescenta intensidade Sutil, Padrão e Cinemática por perfil, integrada à mesma área Aparência. Reduzido e Desligado prevalecem sobre a intensidade. Passaram 32 testes direcionados, incluindo seleção real com mouse/teclado e persistência em armazenamento isolado, e o MSI foi compilado. A preferência local é preservada ao substituir os dados de sync e não altera seus contratos. [Evidências](https://github.com/Pepeu2010/nuvio-enhanced/blob/main/docs/intensity-ui-qa.json).
 
+A continuação no **menu lateral padrão** integra sua expansão, rótulos e offsets à política de movimento. No modo adaptativo Reduzido/Desligado, o menu e o padding ficam estáveis; Compacto permanece uma opção explícita. Os itens expõem seleção acessível. Passaram 27 testes direcionados, incluindo clique e Enter no componente lateral real, e o MSI foi compilado. A captura/teste do componente não substitui QA integral do app. Esta continuação também está fora da alpha.2.
+
 ## O que muda e o que vem depois
 
 A fundação já tem instalação/dados/cache/updater próprios, relatórios externos de falhas desligados por padrão, redaction nos diagnósticos revisados e correção da recompilação da ponte Windows.

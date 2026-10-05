@@ -55,6 +55,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -63,6 +66,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.DisintegrationRequest
 import com.nuvio.app.core.ui.LocalNuvioNavBarScrollState
+import com.nuvio.app.core.ui.LocalUiMotion
 import com.nuvio.app.core.ui.NuvioLoadingIndicator
 import com.nuvio.app.core.ui.NuvioNavBarScrollState
 import com.nuvio.app.core.ui.NuvioTokens
@@ -322,6 +326,7 @@ internal fun TabletFloatingTopBar(
     modifier: Modifier = Modifier,
 ) {
     val tokens = MaterialTheme.nuvio
+    val motionPolicy = LocalUiMotion.current
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -344,7 +349,7 @@ internal fun TabletFloatingTopBar(
             Color(0xFF0F0F11).copy(alpha = 0.20f)
         },
         animationSpec = tween(
-            durationMillis = 320,
+            durationMillis = motionPolicy.durationMillis(320),
             easing = FastOutSlowInEasing,
         ),
         label = "top_bar_surface_color",
@@ -356,7 +361,7 @@ internal fun TabletFloatingTopBar(
         NavBarStyle.EXPANDED -> 1f
         NavBarStyle.COMPACT -> 0f
         else -> { // ADAPTIVE
-            if (isHovered || isProfileSwitcherOpen) {
+            if (!motionPolicy.allowsSpatialEffects || isHovered || isProfileSwitcherOpen) {
                 1f
             } else if (isHeroPresentOnHome) {
                 // Home with hero enabled: compact at top and when scrolled (unless hovered)
@@ -373,7 +378,7 @@ internal fun TabletFloatingTopBar(
     val labelFraction by animateFloatAsState(
         targetValue = targetLabelFraction,
         animationSpec = tween(
-            durationMillis = 320,
+            durationMillis = if (motionPolicy.allowsSpatialEffects) motionPolicy.durationMillis(320) else 0,
             easing = FastOutSlowInEasing,
         ),
         label = "top_bar_label_fraction",
@@ -382,7 +387,7 @@ internal fun TabletFloatingTopBar(
     val frostedSheenAlpha by animateFloatAsState(
         targetValue = if (isFrosted) 1f else 0f,
         animationSpec = tween(
-            durationMillis = 320,
+            durationMillis = motionPolicy.durationMillis(320),
             easing = FastOutSlowInEasing,
         ),
         label = "top_bar_sheen_alpha",
@@ -618,8 +623,10 @@ private fun TabletTopPillItem(
     icon: @Composable () -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
+    val motionPolicy = LocalUiMotion.current
     val selectedBgColor by animateColorAsState(
         targetValue = if (selected) tokens.colors.accent.copy(alpha = 0.18f) else Color.Transparent,
+        animationSpec = tween(motionPolicy.durationMillis(200)),
         label = "pill_bg_color",
     )
     val itemShape = tokens.shapes.chip
@@ -647,13 +654,13 @@ private fun TabletTopPillItem(
             AnimatedVisibility(
                 visible = labelFraction > 0.05f,
                 enter = expandHorizontally(
-                    animationSpec = tween(320, easing = FastOutSlowInEasing),
+                    animationSpec = tween(if (motionPolicy.allowsSpatialEffects) motionPolicy.durationMillis(320) else 0, easing = FastOutSlowInEasing),
                     expandFrom = Alignment.Start,
-                ) + fadeIn(tween(250)),
+                ) + fadeIn(tween(motionPolicy.durationMillis(250))),
                 exit = shrinkHorizontally(
-                    animationSpec = tween(320, easing = FastOutSlowInEasing),
+                    animationSpec = tween(if (motionPolicy.allowsSpatialEffects) motionPolicy.durationMillis(320) else 0, easing = FastOutSlowInEasing),
                     shrinkTowards = Alignment.Start,
-                ) + fadeOut(tween(200)),
+                ) + fadeOut(tween(motionPolicy.durationMillis(200))),
             ) {
                 Text(
                     text = label,
@@ -726,6 +733,7 @@ internal fun DesktopHoverSidebar(
     modifier: Modifier = Modifier,
 ) {
     val tokens = MaterialTheme.nuvio
+    val motionPolicy = LocalUiMotion.current
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val profileState by ProfileRepository.state.collectAsStateWithLifecycle()
     val avatars by AvatarRepository.avatars.collectAsStateWithLifecycle()
@@ -770,7 +778,7 @@ internal fun DesktopHoverSidebar(
                 .coerceIn(0.dp, availableNavOffset)
             val animatedNavColumnOffset by animateDpAsState(
                 targetValue = navColumnOffset,
-                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                animationSpec = tween(durationMillis = if (motionPolicy.allowsSpatialEffects) motionPolicy.durationMillis(200) else 0, easing = FastOutSlowInEasing),
                 label = "desktop_sidebar_nav_offset",
             )
 
@@ -781,6 +789,7 @@ internal fun DesktopHoverSidebar(
                     .fillMaxWidth()
                     .height(DesktopSidebarItemHeight)
                     .padding(horizontal = 6.dp, vertical = 4.dp)
+                    .semantics { contentDescription = activeProfileName }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -881,6 +890,7 @@ private fun DesktopSidebarProfileTrigger(
     expanded: Boolean,
 ) {
     val tokens = MaterialTheme.nuvio
+    val motionPolicy = LocalUiMotion.current
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -906,15 +916,15 @@ private fun DesktopSidebarProfileTrigger(
             }
             AnimatedVisibility(
                 visible = expanded,
-                enter = fadeIn(animationSpec = tween(160)) + expandHorizontally(
+                enter = fadeIn(animationSpec = tween(motionPolicy.durationMillis(160))) + expandHorizontally(
                     expandFrom = Alignment.Start,
-                    animationSpec = tween(200, easing = FastOutSlowInEasing),
+                    animationSpec = tween(if (motionPolicy.allowsSpatialEffects) motionPolicy.durationMillis(200) else 0, easing = FastOutSlowInEasing),
                 ),
                 exit = shrinkHorizontally(
                     shrinkTowards = Alignment.Start,
-                    animationSpec = tween(200, easing = FastOutSlowInEasing),
+                    animationSpec = tween(if (motionPolicy.allowsSpatialEffects) motionPolicy.durationMillis(200) else 0, easing = FastOutSlowInEasing),
                 ) + fadeOut(
-                    animationSpec = tween(80, delayMillis = 120),
+                    animationSpec = tween(motionPolicy.durationMillis(80), delayMillis = if (motionPolicy.allowsSpatialEffects) motionPolicy.durationMillis(120) else 0),
                 ),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -942,6 +952,7 @@ private fun DesktopSidebarItem(
     icon: @Composable (Color) -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
+    val motionPolicy = LocalUiMotion.current
     val contentColor = if (selected) tokens.colors.textPrimary else tokens.colors.textMuted
     val iconColor = if (selected) tokens.colors.onAccent else contentColor
 
@@ -950,7 +961,8 @@ private fun DesktopSidebarItem(
         modifier = Modifier
             .fillMaxWidth()
             .height(DesktopSidebarItemHeight)
-            .padding(horizontal = 6.dp, vertical = 4.dp),
+            .padding(horizontal = 6.dp, vertical = 4.dp)
+            .semantics { this.selected = selected },
         color = Color.Transparent,
         shape = RoundedCornerShape(16.dp),
     ) {
@@ -974,15 +986,15 @@ private fun DesktopSidebarItem(
             }
             AnimatedVisibility(
                 visible = expanded,
-                enter = fadeIn(animationSpec = tween(160)) + expandHorizontally(
+                enter = fadeIn(animationSpec = tween(motionPolicy.durationMillis(160))) + expandHorizontally(
                     expandFrom = Alignment.Start,
-                    animationSpec = tween(200, easing = FastOutSlowInEasing),
+                    animationSpec = tween(if (motionPolicy.allowsSpatialEffects) motionPolicy.durationMillis(200) else 0, easing = FastOutSlowInEasing),
                 ),
                 exit = shrinkHorizontally(
                     shrinkTowards = Alignment.Start,
-                    animationSpec = tween(200, easing = FastOutSlowInEasing),
+                    animationSpec = tween(if (motionPolicy.allowsSpatialEffects) motionPolicy.durationMillis(200) else 0, easing = FastOutSlowInEasing),
                 ) + fadeOut(
-                    animationSpec = tween(80, delayMillis = 120),
+                    animationSpec = tween(motionPolicy.durationMillis(80), delayMillis = if (motionPolicy.allowsSpatialEffects) motionPolicy.durationMillis(120) else 0),
                 ),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

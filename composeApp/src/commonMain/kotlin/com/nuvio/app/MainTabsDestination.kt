@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.core.ui.LocalNuvioBottomNavigationOverlayPadding
+import com.nuvio.app.core.ui.LocalUiMotion
 import com.nuvio.app.core.ui.LocalNuvioNavBarScrollState
 import com.nuvio.app.core.ui.NuvioNavBarScrollState
 import com.nuvio.app.core.ui.NuvioClassicNavigationBar
@@ -81,6 +82,7 @@ internal fun MainTabsDestination(
     onProfileSelected: (NuvioProfile) -> Unit,
     onAddProfileRequested: () -> Unit,
 ) {
+    val motionPolicy = LocalUiMotion.current
     PlatformBackHandler(enabled = rootRouteActive, onBack = onBack)
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -124,16 +126,19 @@ internal fun MainTabsDestination(
         val isSidebarExpanded = when (navBarStyleSetting) {
             NavBarStyle.EXPANDED -> true
             NavBarStyle.COMPACT -> isProfileStackVisible
-            else -> isSidebarHovered || isProfileStackVisible // ADAPTIVE
+            else -> !motionPolicy.allowsSpatialEffects || isSidebarHovered || isProfileStackVisible // ADAPTIVE
         }
 
         val animatedSidebarWidth by animateDpAsState(
             targetValue = if (isSidebarExpanded) DesktopSidebarExpandedWidth else DesktopSidebarCollapsedWidth,
-            animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+            animationSpec = tween(durationMillis = if (motionPolicy.allowsSpatialEffects) motionPolicy.durationMillis(200) else 0, easing = FastOutSlowInEasing),
             label = "desktop_sidebar_width",
         )
 
-        val isSidebarAlwaysExpanded = useDesktopSidebar && navBarStyleSetting == NavBarStyle.EXPANDED
+        val isSidebarAlwaysExpanded = useDesktopSidebar && (
+            navBarStyleSetting == NavBarStyle.EXPANDED ||
+                (!motionPolicy.allowsSpatialEffects && navBarStyleSetting != NavBarStyle.COMPACT)
+            )
         val contentStartPadding = if (useDesktopSidebar) {
             if (isSidebarAlwaysExpanded) DesktopSidebarExpandedWidth else DesktopSidebarCollapsedWidth
         } else {

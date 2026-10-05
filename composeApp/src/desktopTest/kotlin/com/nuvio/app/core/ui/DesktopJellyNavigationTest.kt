@@ -5,6 +5,11 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -14,6 +19,13 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.runtime.mutableIntStateOf
+import com.nuvio.app.AppScreenTab
+import com.nuvio.app.DesktopHoverSidebar
+import com.nuvio.app.DesktopSidebarExpandedWidth
+import nuvio.composeapp.generated.resources.Res
+import nuvio.composeapp.generated.resources.compose_nav_search
+import nuvio.composeapp.generated.resources.compose_nav_library
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,6 +51,50 @@ class DesktopJellyNavigationTest {
     private val selected = mutableIntStateOf(0)
     private val clicks = mutableListOf<Int>()
     private var profileOpened = false
+
+    @Test
+    fun disabledSidebarKeepsMouseTargetAndKeyboardDestinations() {
+        var searchLabel = ""
+        var libraryLabel = ""
+        compose.setContent {
+            searchLabel = stringResource(Res.string.compose_nav_search)
+            libraryLabel = stringResource(Res.string.compose_nav_library)
+            NuvioTheme(navigationMotion = NavigationMotion.OFF, animationIntensity = AnimationIntensity.CINEMATIC) {
+                Box(Modifier.size(720.dp, 560.dp).background(Color(0xFF151619))) {
+                    DesktopHoverSidebar(
+                        selectedTab = AppScreenTab.entries[selected.intValue],
+                        onTabSelected = { tab ->
+                            clicks += tab.ordinal
+                            selected.intValue = tab.ordinal
+                        },
+                        onProfileSelected = {},
+                        onAddProfileRequested = {},
+                        sidebarExpanded = true,
+                        sidebarWidth = DesktopSidebarExpandedWidth,
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+        val search = compose.onNodeWithContentDescription(searchLabel)
+        val beforeHover = search.fetchSemanticsNode().boundsInRoot
+        search.performMouseInput { enter(center) }
+        compose.waitForIdle()
+        assertEquals(beforeHover, search.fetchSemanticsNode().boundsInRoot)
+        search.performMouseInput { click() }
+        compose.waitForIdle()
+        search.assertIsSelected()
+
+        val library = compose.onNodeWithContentDescription(libraryLabel)
+        library.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+        library.performKeyInput { pressKey(Key.Enter) }
+        compose.waitForIdle()
+        library.assertIsSelected()
+        compose.runOnIdle {
+            assertEquals(listOf(AppScreenTab.Search.ordinal, AppScreenTab.Library.ordinal), clicks)
+        }
+        savePreview("sidebar-off")
+    }
 
     @Test
     fun disabledAnimationsStillExpandLabelsAndNavigateExactlyOnce() {
