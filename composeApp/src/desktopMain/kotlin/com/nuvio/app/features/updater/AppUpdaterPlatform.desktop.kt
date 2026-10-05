@@ -54,10 +54,10 @@ actual object AppUpdaterPlatform {
 
     actual val releaseSource: AppUpdateReleaseSource = AppUpdateReleaseSource(
         owner = "Pepeu2010",
-        repo = "nuvio-enhanced-desktop",
+        repo = "telumia-desktop",
         channelBranch = null,
         includePrereleases = true,
-        userAgent = "NuvioEnhancedDesktop",
+        userAgent = "TelumiaDesktop",
     )
 
     actual val assetSelector: AppUpdateAssetSelector

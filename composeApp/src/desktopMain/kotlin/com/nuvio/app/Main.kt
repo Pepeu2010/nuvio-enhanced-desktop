@@ -5,6 +5,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.awt.SwingWindow
 import androidx.compose.ui.configureSwingGlobalsForCompose
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -15,12 +16,14 @@ import androidx.compose.ui.Modifier
 import org.jetbrains.compose.resources.painterResource
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
-import androidx.compose.ui.window.application
+import androidx.compose.ui.window.ApplicationScope
+import androidx.compose.ui.window.awaitApplication
 import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.deeplink.handleAppUrl
 import com.nuvio.app.core.diagnostics.SentryInitializer
 import com.nuvio.app.core.ui.NuvioTheme
+import com.nuvio.app.core.ui.UiAnimationDurationScale
 import com.nuvio.app.core.ui.ProvideDesktopWindowInsets
 import com.nuvio.app.features.discordrpc.DiscordPresenceManager
 import com.nuvio.app.features.p2p.P2pStreamingEngine
@@ -39,12 +42,15 @@ import com.nuvio.app.features.player.desktop.registerDesktopAppFullscreenToggle
 import com.nuvio.app.features.player.desktop.trackMaximizedBoundsForCurrentScreen
 import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.settings.AppIconRepository
+import com.nuvio.app.features.settings.ThemeSettingsRepository
 import com.nuvio.app.features.settings.applyDesktopRendererPreference
 import com.nuvio.app.features.settings.transparentPreviewResource
 import java.awt.Desktop
 import javax.imageio.ImageIO
 import java.awt.Color as AwtColor
 import javax.swing.JComponent
+import kotlinx.coroutines.runBlocking
+import kotlin.system.exitProcess
 
 private val NuvioDesktopNativeBackground = AwtColor(0x0D, 0x0D, 0x0D)
 private const val MacosDarkAquaAppearance = "NSAppearanceNameDarkAqua"
@@ -68,9 +74,13 @@ fun main(args: Array<String>) {
     // on the very first Compose frame (matching Android's SharedPreferences behavior).
     ProfileRepository.loadCachedProfiles()
     AppIconRepository.ensureLoaded()
+    ThemeSettingsRepository.ensureLoaded()
     DiscordPresenceManager.start()
 
-    application {
+    val durationScale = UiAnimationDurationScale(ThemeSettingsRepository.navigationMotion.value)
+    runDesktopMotionApplication(durationScale) {
+        val navigationMotion by ThemeSettingsRepository.navigationMotion.collectAsState()
+        SideEffect { durationScale.mode = navigationMotion }
         val appIconState by AppIconRepository.state.collectAsState()
         val smokePlayerUrl = (
             System.getProperty("nuvio.desktop.smokePlayerUrl")
@@ -128,7 +138,7 @@ fun main(args: Array<String>) {
                 SentryInitializer.close()
                 exitApplication()
             },
-            title = if (smokePlayerUrl == null) "Nuvio Enhanced" else "Nuvio Enhanced Player Smoke",
+            title = if (smokePlayerUrl == null) "Telumia" else "Telumia Player Smoke",
             state = windowState,
             icon = painterResource(appIconState.selected.transparentPreviewResource),
             init = ::configureMacosWindowBeforePeer,
@@ -232,7 +242,14 @@ fun main(args: Array<String>) {
             }
         }
     }
+    exitProcess(0)
 }
+
+/** Uses Compose's existing application/window lifecycle with the motion context inherited by windows. */
+internal fun runDesktopMotionApplication(
+    durationScale: UiAnimationDurationScale,
+    content: @Composable ApplicationScope.() -> Unit,
+) = runBlocking(durationScale) { awaitApplication(content) }
 
 private fun configureDesktopChrome() {
     if (System.getProperty("os.name").contains("mac", ignoreCase = true)) {

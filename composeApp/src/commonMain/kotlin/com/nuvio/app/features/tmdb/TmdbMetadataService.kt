@@ -694,7 +694,9 @@ object TmdbMetadataService {
 
         val needsEpisodes = (
             settings.useEpisodes || settings.useSeasonPosters
-        ) && tmdbType == "tv"
+        ) && tmdbType == "tv" && !com.nuvio.app.features.search.isIludidaInternationalCut(
+            meta.id, meta.videos.map { it.season to it.episode },
+        )
         val (enrichment, episodeMap) = coroutineScope {
             val enrichmentDeferred = async {
                 fetchEnrichment(

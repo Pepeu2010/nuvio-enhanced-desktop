@@ -51,57 +51,17 @@ internal fun AppBrandWordmark(
     ) {
         val height = maxHeight
         val fontScale = LocalDensity.current.fontScale
-        if (!compact && artwork != Res.drawable.app_logo_wordmark_original) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(painterResource(artwork), contentDescription = null,
-                    modifier = Modifier.height(height * 0.68f), contentScale = ContentScale.Fit)
-                Text("ENHANCED", style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = (height.value * 0.24f / fontScale).sp,
-                    lineHeight = (height.value * 0.28f / fontScale).sp,
-                    letterSpacing = (height.value * 0.055f / fontScale).sp,
-                ), color = colors.textSecondary, maxLines = 1)
-            }
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Canvas(Modifier.height(height * 0.86f).aspectRatio(1f)) {
-                    drawRoundRect(colors.accent.copy(alpha = 0.12f), cornerRadius = CornerRadius(size.width * 0.22f))
-                    val aperture = Path().apply {
-                        moveTo(size.width * 0.20f, size.height * 0.20f)
-                        lineTo(size.width * 0.44f, size.height * 0.20f)
-                        lineTo(size.width * 0.28f, size.height * 0.80f)
-                        lineTo(size.width * 0.20f, size.height * 0.80f)
-                        close()
-                        moveTo(size.width * 0.72f, size.height * 0.20f)
-                        lineTo(size.width * 0.80f, size.height * 0.20f)
-                        lineTo(size.width * 0.80f, size.height * 0.80f)
-                        lineTo(size.width * 0.56f, size.height * 0.80f)
-                        close()
-                    }
-                    drawPath(aperture, colors.accent)
-                    val light = Path().apply {
-                        moveTo(size.width * 0.43f, size.height * 0.34f)
-                        lineTo(size.width * 0.66f, size.height * 0.50f)
-                        lineTo(size.width * 0.43f, size.height * 0.66f)
-                        close()
-                    }
-                    drawPath(light, colors.textPrimary)
-                }
-                if (!compact) {
-                    Spacer(Modifier.width(height * 0.24f))
-                    Column {
-                        Text("NUVIO", style = MaterialTheme.typography.titleLarge.copy(
-                            fontSize = (height.value * 0.50f / fontScale).sp,
-                            lineHeight = (height.value * 0.54f / fontScale).sp,
-                            letterSpacing = (height.value * 0.02f / fontScale).sp,
-                            fontWeight = FontWeight.SemiBold,
-                        ), color = colors.textPrimary, maxLines = 1)
-                        Text("ENHANCED", style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = (height.value * 0.24f / fontScale).sp,
-                            lineHeight = (height.value * 0.28f / fontScale).sp,
-                            letterSpacing = (height.value * 0.045f / fontScale).sp,
-                        ), color = colors.textSecondary, maxLines = 1)
-                    }
-                }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Image(painterResource(artwork), contentDescription = null,
+                modifier = Modifier.height(height * 0.9f).aspectRatio(1f), contentScale = ContentScale.Fit)
+            if (!compact) {
+                Spacer(Modifier.width(height * 0.18f))
+                Text("TELUMIA", style = MaterialTheme.typography.titleLarge.copy(
+                    fontSize = (height.value * 0.50f / fontScale).sp,
+                    lineHeight = (height.value * 0.60f / fontScale).sp,
+                    letterSpacing = (height.value * 0.012f / fontScale).sp,
+                    fontWeight = FontWeight.SemiBold,
+                ), color = colors.textPrimary, maxLines = 1)
             }
         }
     }

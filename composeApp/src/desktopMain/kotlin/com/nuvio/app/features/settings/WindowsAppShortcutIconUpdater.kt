@@ -22,7 +22,7 @@ internal object WindowsAppShortcutIconUpdater {
         runCatching {
             val resource = "icons/app-icon-${icon.key}-transparent.ico"
             val localAppData = knownFolder("LocalApplicationData") ?: return@runCatching
-            val iconDirectory = localAppData.resolve("NuvioEnhanced/icons")
+            val iconDirectory = localAppData.resolve("Telumia/icons")
             Files.createDirectories(iconDirectory)
             val iconFile = iconDirectory.resolve("app-icon-${icon.key}-transparent.ico")
             Thread.currentThread().contextClassLoader.getResourceAsStream(resource)?.use { input ->
@@ -49,18 +49,18 @@ internal object WindowsAppShortcutIconUpdater {
         val commonDesktop = knownFolder("CommonDesktopDirectory")
         val commonPrograms = knownFolder("CommonPrograms")
 
-        desktop?.let { yield(it.resolve("NuvioEnhanced.lnk")) }
+        desktop?.let { yield(it.resolve("Telumia.lnk")) }
         programs?.let {
-            yield(it.resolve("NuvioEnhanced.lnk"))
-            yield(it.resolve("NuvioEnhanced/NuvioEnhanced.lnk"))
+            yield(it.resolve("Telumia.lnk"))
+            yield(it.resolve("Telumia/Telumia.lnk"))
         }
         applicationData?.let {
-            yield(it.resolve("Microsoft/Internet Explorer/Quick Launch/User Pinned/TaskBar/NuvioEnhanced.lnk"))
+            yield(it.resolve("Microsoft/Internet Explorer/Quick Launch/User Pinned/TaskBar/Telumia.lnk"))
         }
-        commonDesktop?.let { yield(it.resolve("NuvioEnhanced.lnk")) }
+        commonDesktop?.let { yield(it.resolve("Telumia.lnk")) }
         commonPrograms?.let {
-            yield(it.resolve("NuvioEnhanced/NuvioEnhanced.lnk"))
-            yield(it.resolve("NuvioEnhanced.lnk"))
+            yield(it.resolve("Telumia/Telumia.lnk"))
+            yield(it.resolve("Telumia.lnk"))
         }
     }
 

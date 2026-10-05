@@ -29,7 +29,7 @@ internal fun desktopSentryMetadata(
     return DesktopSentryMetadata(
         platform = platform,
         architecture = architecture,
-        release = "io.github.pepeu2010.nuvioenhanced.desktop@$versionName+$versionCode",
+        release = "io.github.pepeu2010.telumia.desktop@$versionName+$versionCode",
         distribution = "$versionCode-$platform-$architecture",
     )
 }

@@ -1338,9 +1338,9 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage)
-            packageName = "NuvioEnhanced"
+            packageName = "Telumia"
             packageVersion = desktopReleasePackageVersion
-            vendor = "Nuvio Enhanced contributors"
+            vendor = "Telumia contributors"
             if (isMacHost) {
                 appResourcesRootDir.set(macosPlayerAppResourcesRoot)
             }
@@ -1353,7 +1353,7 @@ compose.desktop {
                 "jdk.unsupported",
             )
             macOS {
-                bundleID = "io.github.pepeu2010.nuvioenhanced.desktop"
+                bundleID = "io.github.pepeu2010.telumia.desktop"
                 iconFile.set(project.file("src/desktopMain/resources/icons/nuvio-app-icon-transparent.icns"))
                 infoPlist {
                     extraKeysRawXml = """
@@ -1361,7 +1361,7 @@ compose.desktop {
                         <array>
                             <dict>
                                 <key>CFBundleURLName</key>
-                                <string>io.github.pepeu2010.nuvioenhanced.desktop</string>
+                                <string>io.github.pepeu2010.telumia.desktop</string>
                                 <key>CFBundleURLSchemes</key>
                                 <array>
                                     <string>nuvio</string>
@@ -1394,13 +1394,13 @@ compose.desktop {
                 upgradeUuid = windowsMsiUpgradeUuid
                 shortcut = true
                 menu = true
-                menuGroup = "NuvioEnhanced"
+                menuGroup = "Telumia"
             }
             linux {
                 iconFile.set(project.file("src/desktopMain/resources/icons/nuvio-app-icon-transparent.png"))
                 debMaintainer = "140022384+Pepeu2010@users.noreply.github.com"
                 shortcut = true
-                menuGroup = "NuvioEnhanced"
+                menuGroup = "Telumia"
                 appCategory = "AudioVideo"
             }
         }
@@ -1416,8 +1416,8 @@ fun renameMacosDmgOutput(release: Boolean) {
 
     val distributionName = if (release) "main-release" else "main"
     val outputDir = layout.buildDirectory.dir("compose/binaries/$distributionName/dmg").get().asFile
-    val finalDmg = outputDir.resolve("NuvioEnhanced-macOS-$macosDmgArchName-$desktopReleaseVersionName.dmg")
-    val defaultDmg = outputDir.resolve("NuvioEnhanced-$desktopReleasePackageVersion.dmg")
+    val finalDmg = outputDir.resolve("Telumia-macOS-$macosDmgArchName-$desktopReleaseVersionName.dmg")
+    val defaultDmg = outputDir.resolve("Telumia-$desktopReleasePackageVersion.dmg")
     val sourceDmg = defaultDmg.takeIf { it.exists() }
         ?: finalDmg.takeIf { it.exists() }
         ?: error("Expected macOS DMG output in ${outputDir.absolutePath}")
@@ -1453,8 +1453,8 @@ fun publishWindowsMsiOutput(release: Boolean) {
 
     val distributionName = if (release) "main-release" else "main"
     val outputDir = layout.buildDirectory.dir("compose/binaries/$distributionName/msi").get().asFile
-    val finalMsi = outputDir.resolve("NuvioEnhanced-Windows-$windowsPlayerBridgeArch-$desktopReleaseVersionName.msi")
-    val defaultMsi = outputDir.resolve("NuvioEnhanced-$desktopReleasePackageVersion.msi")
+    val finalMsi = outputDir.resolve("Telumia-Windows-$windowsPlayerBridgeArch-$desktopReleaseVersionName.msi")
+    val defaultMsi = outputDir.resolve("Telumia-$desktopReleasePackageVersion.msi")
     val sourceMsi = defaultMsi.takeIf { it.exists() }
         ?: finalMsi.takeIf { it.exists() }
         ?: error("Expected Windows MSI output in ${outputDir.absolutePath}")
@@ -1612,7 +1612,7 @@ if (isLinuxHost) {
             ?: System.getenv("APPIMAGE_WEBSITE_URL")?.takeIf { it.isNotBlank() }
 
         val distributionName = if (release) "main-release" else "main"
-        val appImageName = "NuvioEnhanced-Linux-$linuxAppImageArch-$desktopReleaseVersionName.AppImage"
+        val appImageName = "Telumia-Linux-$linuxAppImageArch-$desktopReleaseVersionName.AppImage"
         val outputAppImage = layout.buildDirectory
             .dir("compose/binaries/$distributionName/app")
             .get()
@@ -1721,8 +1721,8 @@ if (isMacHost) {
         dependsOn("packageReleaseDmg")
         dmgDir.set(layout.buildDirectory.dir("compose/binaries/main-release/dmg"))
         artifactDir.set(layout.buildDirectory.dir("compose/release-dmgs"))
-        finalDmgName.set("NuvioEnhanced-macOS-$macosDmgArchName-$desktopReleaseVersionName.dmg")
-        defaultDmgName.set("NuvioEnhanced-$desktopReleasePackageVersion.dmg")
+        finalDmgName.set("Telumia-macOS-$macosDmgArchName-$desktopReleaseVersionName.dmg")
+        defaultDmgName.set("Telumia-$desktopReleasePackageVersion.dmg")
         keychainProfile.set(macosNotaryKeychainProfile.orEmpty())
         keychainPath.set(macosNotaryKeychainPath.orEmpty())
         signingIdentity.set(macosSigningIdentity.orEmpty())

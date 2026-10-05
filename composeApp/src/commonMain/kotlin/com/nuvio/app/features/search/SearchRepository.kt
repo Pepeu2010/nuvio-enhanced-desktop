@@ -444,18 +444,27 @@ object SearchRepository {
 
     private suspend fun SearchCatalogRequest.toSection(forceRefresh: Boolean): HomeCatalogSection {
         val manifest = requireNotNull(addon.manifest)
-        val page = fetchCatalogPage(
-            manifestUrl = manifest.transportUrl,
-            type = type,
-            catalogId = catalogId,
-            search = query,
-            forceRefresh = forceRefresh,
-        ).withUnreleasedFilter()
+        val pages = brazilianSearchQueries(query).mapNotNull { alias ->
+            try {
+                fetchCatalogPage(
+                    manifestUrl = manifest.transportUrl, type = type,
+                    catalogId = catalogId, search = alias, forceRefresh = forceRefresh,
+                ).withUnreleasedFilter()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (brazilianSearchQueries(query).size == 1) throw error
+                null
+            }
+        }
+        val page = requireNotNull(pages.firstOrNull())
+        val localizedItems = pages.flatMap { it.items }.distinctBy { it.type to it.id }
+            .map { it.copy(name = brazilianTitle(it.id, it.type, it.name)) }
         val posterPattern = com.nuvio.app.core.poster.CustomPosterUrlRepository.let {
             it.ensureLoaded()
             it.patternForScreen(com.nuvio.app.core.poster.CustomPosterScreen.SEARCH)
         }
-        val items = page.items.withCustomPosterUrls(posterPattern)
+        val items = localizedItems.withCustomPosterUrls(posterPattern)
         require(items.isNotEmpty()) {
             getString(Res.string.search_error_no_results_for_catalog, catalogName)
         }

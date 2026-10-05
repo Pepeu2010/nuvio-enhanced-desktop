@@ -10,18 +10,18 @@ internal object DesktopStoragePaths {
     fun data(osName: String, userHome: Path, environment: (String) -> String?): Path {
         val os = osName.lowercase(Locale.ROOT)
         return when {
-            os.contains("mac") -> userHome.resolve("Library/Application Support/NuvioEnhanced")
-            os.contains("win") -> base(environment("APPDATA"), userHome.resolve("AppData/Roaming")).resolve("NuvioEnhanced")
-            else -> base(environment("XDG_CONFIG_HOME"), userHome.resolve(".config")).resolve("nuvio-enhanced")
+            os.contains("mac") -> userHome.resolve("Library/Application Support/Telumia")
+            os.contains("win") -> base(environment("APPDATA"), userHome.resolve("AppData/Roaming")).resolve("Telumia")
+            else -> base(environment("XDG_CONFIG_HOME"), userHome.resolve(".config")).resolve("telumia")
         }
     }
 
     fun cache(osName: String, userHome: Path, environment: (String) -> String?): Path {
         val os = osName.lowercase(Locale.ROOT)
         return when {
-            os.contains("mac") -> userHome.resolve("Library/Caches/NuvioEnhanced")
-            os.contains("win") -> base(environment("LOCALAPPDATA"), userHome.resolve("AppData/Local")).resolve("NuvioEnhanced/Cache")
-            else -> base(environment("XDG_CACHE_HOME"), userHome.resolve(".cache")).resolve("nuvio-enhanced")
+            os.contains("mac") -> userHome.resolve("Library/Caches/Telumia")
+            os.contains("win") -> base(environment("LOCALAPPDATA"), userHome.resolve("AppData/Local")).resolve("Telumia/Cache")
+            else -> base(environment("XDG_CACHE_HOME"), userHome.resolve(".cache")).resolve("telumia")
         }
     }
 

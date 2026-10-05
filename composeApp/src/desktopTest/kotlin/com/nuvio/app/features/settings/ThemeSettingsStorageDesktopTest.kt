@@ -18,7 +18,7 @@ class ThemeSettingsStorageDesktopTest {
     fun `local motion persists to the existing store and survives a sync replacement`() {
         // This integration test must never write to the user's application data.
         assumeTrue(System.getenv("NUVIO_ENHANCED_ISOLATED_THEME_TEST") == "1")
-        val sandbox = Paths.get(System.getenv("APPDATA")).resolve("NuvioEnhanced")
+        val sandbox = Paths.get(System.getenv("APPDATA")).resolve("Telumia")
         assertTrue(DesktopStorage.rootDir.startsWith(sandbox))
         ThemeSettingsStorage.saveNavigationMotion(NavigationMotion.OFF.name)
         ThemeSettingsStorage.saveAnimationIntensity(AnimationIntensity.CINEMATIC.name)

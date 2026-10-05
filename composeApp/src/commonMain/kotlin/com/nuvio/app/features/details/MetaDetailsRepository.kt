@@ -140,11 +140,19 @@ object MetaDetailsRepository {
                 return@launch
             }
 
+            var originalEdition: MetaDetails? = null
             for (manifest in manifests) {
                 val result = withContext(Dispatchers.Default) {
                     tryFetchMeta(manifest, type, metaLookupId, includeMdbList = false)
                 }
                 if (result != null) {
+                    if (com.nuvio.app.features.search.isIludidaWork(result.id) &&
+                        !com.nuvio.app.features.search.hasIludidaBrazilianSeason(
+                            result.id, result.videos.map { it.season to it.episode },
+                        )) {
+                        if (originalEdition == null) originalEdition = result
+                        continue
+                    }
                     publishLoadedMeta(
                         requestKey = requestKey,
                         meta = result,
@@ -157,6 +165,15 @@ object MetaDetailsRepository {
                 }
             }
 
+            if (originalEdition != null) {
+                publishLoadedMeta(
+                    requestKey = requestKey, meta = originalEdition,
+                    fallbackItemId = metaLookupId, fallbackItemType = type,
+                    mdbListSettings = mdbListSettings,
+                    metaScreenSettingsFingerprint = metaScreenSettingsFingerprint,
+                )
+                return@launch
+            }
             val tmdbMeta = tryFetchTmdbFallbackMeta(type = type, id = id)
             if (tmdbMeta != null) {
                 publishLoadedMeta(

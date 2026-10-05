@@ -8,7 +8,7 @@ class ForkUpdateSourceTest {
     @Test
     fun desktopUpdatesComeOnlyFromIndependentFork() {
         assertEquals("Pepeu2010", AppUpdaterPlatform.releaseSource.owner)
-        assertEquals("nuvio-enhanced-desktop", AppUpdaterPlatform.releaseSource.repo)
+        assertEquals("telumia-desktop", AppUpdaterPlatform.releaseSource.repo)
         assertNotEquals("NuvioMedia", AppUpdaterPlatform.releaseSource.owner)
     }
 }

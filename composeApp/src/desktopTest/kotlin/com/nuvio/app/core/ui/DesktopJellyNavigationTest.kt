@@ -19,6 +19,18 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.MotionDurationScale
+import androidx.compose.ui.awt.SwingWindow
+import com.nuvio.app.runDesktopMotionApplication
+import kotlinx.coroutines.currentCoroutineContext
 import com.nuvio.app.AppScreenTab
 import com.nuvio.app.DesktopHoverSidebar
 import com.nuvio.app.DesktopSidebarExpandedWidth
@@ -45,13 +57,97 @@ import javax.imageio.ImageIO
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertSame
 
+@OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
 class DesktopJellyNavigationTest {
+    private val runtimeDurationScale = UiAnimationDurationScale()
     @get:Rule
-    val compose = createComposeRule()
+    val compose = createComposeRule(effectContext = runtimeDurationScale)
     private val selected = mutableIntStateOf(0)
     private val clicks = mutableListOf<Int>()
     private var profileOpened = false
+
+    @Test
+    fun rawComposeAnimationsStopAndInfiniteTransitionsResumeWithoutRemounting() {
+        compose.mainClock.autoAdvance = false
+        runtimeDurationScale.mode = NavigationMotion.OFF
+        val finite = Animatable(0f)
+        var loop: State<Float>? = null
+        var observedContext: MotionDurationScale? = null
+        compose.setContent {
+            loop = rememberInfiniteTransition().animateFloat(
+                initialValue = 0f, targetValue = 1f,
+                animationSpec = infiniteRepeatable(tween(1_000, easing = LinearEasing)),
+            )
+            LaunchedEffect(Unit) {
+                observedContext = currentCoroutineContext()[MotionDurationScale]
+                finite.animateTo(1f, tween(1_000))
+            }
+            Box(Modifier.size(32.dp))
+        }
+        compose.mainClock.advanceTimeBy(64)
+        compose.runOnIdle {
+            assertSame(runtimeDurationScale, observedContext)
+            assertEquals(1f, finite.value)
+            assertEquals(1f, loop!!.value)
+            runtimeDurationScale.mode = NavigationMotion.FULL
+        }
+        compose.mainClock.advanceTimeBy(320)
+        compose.runOnIdle {
+            assertTrue(loop!!.value in 0.01f..0.99f, "Infinite transition must resume after Off -> Full")
+            runtimeDurationScale.mode = NavigationMotion.OFF
+        }
+        compose.mainClock.advanceTimeBy(1_600)
+        compose.runOnIdle {
+            assertEquals(1f, loop!!.value)
+            runtimeDurationScale.mode = NavigationMotion.FULL
+            runtimeDurationScale.systemScale = 0f
+        }
+        compose.mainClock.advanceTimeBy(320)
+        compose.runOnIdle {
+            assertEquals(1f, loop!!.value)
+            runtimeDurationScale.systemScale = 2f
+        }
+        compose.mainClock.advanceTimeBy(320)
+        compose.runOnIdle {
+            assertTrue(loop!!.value in 0.01f..0.99f, "System motion must also resume without remounting")
+        }
+    }
+
+    @Test
+    fun disablingRuntimeMotionFinishesAnAlreadyRunningRawTween() {
+        compose.mainClock.autoAdvance = false
+        val finite = Animatable(0f)
+        compose.setContent {
+            LaunchedEffect(Unit) { finite.animateTo(1f, tween(2_000, easing = LinearEasing)) }
+            Box(Modifier.size(32.dp))
+        }
+        compose.mainClock.advanceTimeBy(320)
+        compose.runOnIdle {
+            assertTrue(finite.value in 0.01f..0.99f)
+            runtimeDurationScale.mode = NavigationMotion.OFF
+        }
+        compose.mainClock.advanceTimeBy(64)
+        compose.runOnIdle { assertEquals(1f, finite.value) }
+    }
+
+    @org.junit.Test(timeout = 20_000)
+    @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+    fun productionApplicationRunnerPassesMotionContextToItsSwingWindowAndCloses() {
+        val scale = UiAnimationDurationScale(NavigationMotion.OFF)
+        var windowEffectRan = false
+        runDesktopMotionApplication(scale) {
+            SwingWindow(onCloseRequest = ::exitApplication, title = "Telumia runtime QA", init = {}) {
+                LaunchedEffect(Unit) {
+                    assertSame(scale, currentCoroutineContext()[MotionDurationScale])
+                    windowEffectRan = true
+                    exitApplication()
+                }
+            }
+        }
+        assertTrue(windowEffectRan)
+    }
 
     @Test
     fun disabledSidebarKeepsMouseTargetAndKeyboardDestinations() {
@@ -77,7 +173,7 @@ class DesktopJellyNavigationTest {
             }
         }
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Nuvio Enhanced").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Telumia").assertIsDisplayed()
         val search = compose.onNodeWithContentDescription(searchLabel)
         val beforeHover = search.fetchSemanticsNode().boundsInRoot
         search.performMouseInput { enter(center) }

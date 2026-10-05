@@ -8,9 +8,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,6 +57,20 @@ enum class NavigationMotion {
         fun fromName(value: String?): NavigationMotion =
             entries.firstOrNull { it.name == value } ?: FULL
     }
+}
+
+/** Observable state lets suspended infinite transitions resume when motion is enabled again. */
+@Stable
+internal class UiAnimationDurationScale(
+    initialMode: NavigationMotion = NavigationMotion.FULL,
+    initialSystemScale: Float = 1f,
+) : MotionDurationScale {
+    var mode by mutableStateOf(initialMode)
+    var systemScale by mutableFloatStateOf(initialSystemScale)
+    val effectiveSystemScale: Float
+        get() = systemScale.takeIf { it.isFinite() && it >= 0f } ?: 1f
+    override val scaleFactor: Float
+        get() = if (mode == NavigationMotion.OFF) 0f else effectiveSystemScale
 }
 
 object NuvioTokens {
