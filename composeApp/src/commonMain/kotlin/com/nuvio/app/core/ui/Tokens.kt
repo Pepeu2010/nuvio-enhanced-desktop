@@ -74,6 +74,18 @@ internal class UiAnimationDurationScale(
 }
 
 object NuvioTokens {
+    /** Visual readiness only. Live routes/providers are enabled in the Live TV milestone. */
+    object LiveTv {
+        val channelWidth = 208.dp
+        val rowHeight = 88.dp
+        val programWidth = 240.dp
+        val cornerRadius = 16.dp
+        val contentPadding = 16.dp
+        val itemSpacing = 12.dp
+        val progressHeight = 4.dp
+        val focusBorderWidth = 3.dp
+    }
+
     object Space {
         val none = 0.dp
         val hairline = 0.5.dp
