@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.FloatingNavigationItem
 import com.nuvio.app.core.ui.NuvioTokens
-import com.nuvio.app.core.ui.LocalNavigationMotion
+import com.nuvio.app.core.ui.LocalUiMotion
 import com.nuvio.app.core.ui.detectJellyTabGestures
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.visualNavIndex
@@ -51,9 +51,10 @@ internal fun JellyNavigationBar(
     val isRtl = layoutDirection == LayoutDirection.Rtl
     val selectedIndex = items.indexOfFirst { it.selected }
     val visualSelectedIndex = visualNavIndex(selectedIndex, items.size, isRtl)
-    val allowsSpatialEffects = LocalNavigationMotion.current.allowsSpatialEffects
-    val motion = remember(items.size, isRtl, allowsSpatialEffects) {
-        JellyMotion(visualSelectedIndex, items.size, allowsSpatialEffects)
+    val motionPolicy = LocalUiMotion.current
+    val allowsSpatialEffects = motionPolicy.allowsSpatialEffects
+    val motion = remember(items.size, isRtl, allowsSpatialEffects, motionPolicy.intensity) {
+        JellyMotion(visualSelectedIndex, items.size, allowsSpatialEffects, motionPolicy.intensity)
     }
     val density = LocalDensity.current
     val currentIsRtl by rememberUpdatedState(isRtl)

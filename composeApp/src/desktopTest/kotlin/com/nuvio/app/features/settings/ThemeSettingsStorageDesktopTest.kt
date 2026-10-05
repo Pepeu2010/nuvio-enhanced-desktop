@@ -2,6 +2,7 @@ package com.nuvio.app.features.settings
 
 import java.util.Locale
 import com.nuvio.app.core.ui.NavigationMotion
+import com.nuvio.app.core.ui.AnimationIntensity
 import com.nuvio.app.core.storage.DesktopStorage
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -20,12 +21,16 @@ class ThemeSettingsStorageDesktopTest {
         val sandbox = Paths.get(System.getenv("APPDATA")).resolve("NuvioEnhanced")
         assertTrue(DesktopStorage.rootDir.startsWith(sandbox))
         ThemeSettingsStorage.saveNavigationMotion(NavigationMotion.OFF.name)
+        ThemeSettingsStorage.saveAnimationIntensity(AnimationIntensity.CINEMATIC.name)
         assertFalse("enhanced_navigation_motion" in ThemeSettingsStorage.exportToSyncPayload())
+        assertFalse("enhanced_animation_intensity" in ThemeSettingsStorage.exportToSyncPayload())
         ThemeSettingsStorage.replaceFromSyncPayload(kotlinx.serialization.json.buildJsonObject {})
         assertEquals("OFF", ThemeSettingsStorage.loadNavigationMotion())
+        assertEquals("CINEMATIC", ThemeSettingsStorage.loadAnimationIntensity())
         val disk = Properties()
         Files.newInputStream(sandbox.resolve("nuvio_theme_settings.properties")).use(disk::load)
         assertEquals("OFF", disk.getProperty("enhanced_navigation_motion_1"))
+        assertEquals("CINEMATIC", disk.getProperty("enhanced_animation_intensity_1"))
     }
 
     @Test

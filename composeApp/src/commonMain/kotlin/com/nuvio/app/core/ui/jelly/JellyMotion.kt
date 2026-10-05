@@ -1,6 +1,7 @@
 package com.nuvio.app.core.ui.jelly
 
 import androidx.compose.runtime.Stable
+import com.nuvio.app.core.ui.AnimationIntensity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -24,7 +25,12 @@ internal data class JellyFrame(
 )
 
 @Stable
-internal class JellyMotion(initialIndex: Int, count: Int, private val allowsSpatialEffects: Boolean = true) {
+internal class JellyMotion(
+    initialIndex: Int,
+    count: Int,
+    private val allowsSpatialEffects: Boolean = true,
+    private val intensity: AnimationIntensity = AnimationIntensity.STANDARD,
+) {
     private val position = JellySpring(initialIndex.coerceAtLeast(0).toDouble(), 1000.0, 1.0)
     private val velocity = JellySpring(0.0, 300.0, 0.5)
     private val press = JellySpring(0.0, 1000.0, 1.0)
@@ -138,7 +144,7 @@ internal class JellyMotion(initialIndex: Int, count: Int, private val allowsSpat
             publish()
             return
         }
-        val delta = seconds.coerceIn(0.0, 0.064)
+        val delta = (seconds / intensity.fraction).coerceIn(0.0, 0.064)
         target = target.coerceIn(0.0, maxIndex.toDouble())
         position.advance(target, delta)
         velocity.advance(if (dragging && maxIndex > 0) position.velocity / maxIndex else 0.0, delta)
@@ -187,5 +193,16 @@ internal class JellyMotion(initialIndex: Int, count: Int, private val allowsSpat
             glowY = downY.toFloat(),
             glowOpacity = glow.value.toFloat().coerceIn(0f, 1f),
         )
+        if (intensity != AnimationIntensity.STANDARD) {
+            frame = frame.copy(
+                pillScaleX = intensity.scale(frame.pillScaleX),
+                pillScaleY = intensity.scale(frame.pillScaleY),
+                contentScale = intensity.scale(frame.contentScale),
+                panelOffset = frame.panelOffset * intensity.fraction,
+                trackScale = intensity.scale(frame.trackScale),
+                trackScaleX = intensity.scale(frame.trackScaleX),
+                trackOffsetY = frame.trackOffsetY * intensity.fraction,
+            )
+        }
     }
 }

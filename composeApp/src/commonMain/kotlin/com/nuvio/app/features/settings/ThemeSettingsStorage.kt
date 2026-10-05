@@ -11,6 +11,8 @@ internal expect object ThemeSettingsStorage {
     fun saveAmoledEnabled(enabled: Boolean)
     fun loadNavigationMotion(): String?
     fun saveNavigationMotion(mode: String)
+    fun loadAnimationIntensity(): String?
+    fun saveAnimationIntensity(intensity: String)
     fun loadLiquidGlassNativeTabBarEnabled(): Boolean?
     fun saveLiquidGlassNativeTabBarEnabled(enabled: Boolean)
     fun loadDesktopNavigationLayout(): String?

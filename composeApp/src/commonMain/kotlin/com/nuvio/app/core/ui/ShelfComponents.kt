@@ -557,11 +557,12 @@ internal fun Modifier.desktopPosterHoverScale(
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ): Modifier {
     if (!enabled || !isDesktop) return this
-    if (!LocalNavigationMotion.current.allowsSpatialEffects) return this.hoverable(interactionSource)
+    val motionPolicy = LocalUiMotion.current
+    if (!motionPolicy.allowsSpatialEffects) return this.hoverable(interactionSource)
 
     val hovered by interactionSource.collectIsHoveredAsState()
     val scale by animateFloatAsState(
-        targetValue = if (hovered) DesktopPosterHoverScale else 1f,
+        targetValue = if (hovered) motionPolicy.scale(DesktopPosterHoverScale) else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMediumLow,

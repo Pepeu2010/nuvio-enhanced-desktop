@@ -12,6 +12,25 @@ import kotlin.test.assertTrue
 
 class CustomThemeColorsTest {
     @Test
+    fun intensityChangesFullMotionWithoutOverridingReducedOrDisabledPolicies() {
+        val standard = defaultNuvioThemeTokens(ThemeColors.White, false, null)
+        val subtle = defaultNuvioThemeTokens(ThemeColors.White, false, null, intensity = AnimationIntensity.SUBTLE)
+        val cinematic = defaultNuvioThemeTokens(ThemeColors.White, false, null, intensity = AnimationIntensity.CINEMATIC)
+        assertTrue(subtle.motion.normalMillis < standard.motion.normalMillis)
+        assertTrue(cinematic.motion.normalMillis > standard.motion.normalMillis)
+        assertEquals(standard.colors, cinematic.colors)
+        for (intensity in AnimationIntensity.entries) {
+            val off = UiMotionPolicy(NavigationMotion.OFF, intensity)
+            val reduced = UiMotionPolicy(NavigationMotion.REDUCED, intensity)
+            assertEquals(0, off.durationMillis(700))
+            assertEquals(1f, off.scale(1.04f))
+            assertEquals(1f, reduced.scale(1.04f))
+            assertTrue(reduced.durationMillis(700) <= 120)
+        }
+        assertEquals(AnimationIntensity.STANDARD, AnimationIntensity.fromName("unknown"))
+    }
+
+    @Test
     fun themeMotionPolicyKeepsAppearanceAndFocusColorsWhileDisablingAllTokenDurations() {
         val full = defaultNuvioThemeTokens(ThemeColors.White, false, null)
         val off = defaultNuvioThemeTokens(ThemeColors.White, false, null, NavigationMotion.OFF)

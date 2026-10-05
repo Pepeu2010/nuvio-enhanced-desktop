@@ -213,7 +213,7 @@ internal fun MainAppContent(
 ) {
         val navBackStack = rememberNavBackStack(navigationSavedStateConfiguration, initialRoute)
         val posterNavigation = remember { PosterNavigationState() }
-        val navigationMotion = com.nuvio.app.core.ui.LocalNavigationMotion.current
+        val navigationMotion = com.nuvio.app.core.ui.LocalUiMotion.current
         val navigationDuration = navigationMotion.durationMillis(com.nuvio.app.core.ui.NuvioTokens.Motion.normalMillis)
         LaunchedEffect(navigationMotion) {
             // Land lifted artwork immediately if motion is reduced while navigating.

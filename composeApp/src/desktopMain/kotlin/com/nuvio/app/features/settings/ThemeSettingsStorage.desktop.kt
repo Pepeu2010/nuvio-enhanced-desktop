@@ -65,6 +65,13 @@ internal actual object ThemeSettingsStorage {
         store.putString(ProfileScopedKey.of("enhanced_navigation_motion"), mode)
     }
 
+    actual fun loadAnimationIntensity(): String? =
+        store.getString(ProfileScopedKey.of("enhanced_animation_intensity"))
+
+    actual fun saveAnimationIntensity(intensity: String) {
+        store.putString(ProfileScopedKey.of("enhanced_animation_intensity"), intensity)
+    }
+
     actual fun saveAmoledEnabled(enabled: Boolean) {
         store.putBoolean(ProfileScopedKey.of(amoledEnabledKey), enabled)
     }

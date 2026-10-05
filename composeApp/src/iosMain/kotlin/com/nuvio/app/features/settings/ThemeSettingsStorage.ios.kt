@@ -39,6 +39,13 @@ actual object ThemeSettingsStorage {
         NSUserDefaults.standardUserDefaults.setObject(mode, forKey = ProfileScopedKey.of("enhanced_navigation_motion"))
     }
 
+    actual fun loadAnimationIntensity(): String? =
+        NSUserDefaults.standardUserDefaults.stringForKey(ProfileScopedKey.of("enhanced_animation_intensity"))
+
+    actual fun saveAnimationIntensity(intensity: String) {
+        NSUserDefaults.standardUserDefaults.setObject(intensity, forKey = ProfileScopedKey.of("enhanced_animation_intensity"))
+    }
+
     actual fun saveSelectedTheme(themeName: String) {
         NSUserDefaults.standardUserDefaults.setObject(themeName, forKey = ProfileScopedKey.of(selectedThemeKey))
     }

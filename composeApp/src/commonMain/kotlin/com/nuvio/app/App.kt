@@ -103,12 +103,14 @@ internal fun AppEnvironment(content: @Composable () -> Unit) {
 
     val customThemeColors by ThemeSettingsRepository.customThemeColors.collectAsStateWithLifecycle()
     val navigationMotion by ThemeSettingsRepository.navigationMotion.collectAsStateWithLifecycle()
+    val animationIntensity by ThemeSettingsRepository.animationIntensity.collectAsStateWithLifecycle()
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         NuvioTheme(
             appTheme = selectedTheme,
             amoled = amoledEnabled,
             navigationMotion = navigationMotion,
+            animationIntensity = animationIntensity,
             customThemeColors = customThemeColors,
             desktopUiScale = desktopUiScaleForWindow(maxWidth.value, maxHeight.value),
         ) {

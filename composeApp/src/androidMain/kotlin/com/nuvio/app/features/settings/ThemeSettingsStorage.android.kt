@@ -73,6 +73,13 @@ actual object ThemeSettingsStorage {
         preferences?.edit()?.putString(ProfileScopedKey.of("enhanced_navigation_motion"), mode)?.apply()
     }
 
+    actual fun loadAnimationIntensity(): String? =
+        preferences?.getString(ProfileScopedKey.of("enhanced_animation_intensity"), null)
+
+    actual fun saveAnimationIntensity(intensity: String) {
+        preferences?.edit()?.putString(ProfileScopedKey.of("enhanced_animation_intensity"), intensity)?.apply()
+    }
+
     actual fun saveAmoledEnabled(enabled: Boolean) {
         preferences
             ?.edit()

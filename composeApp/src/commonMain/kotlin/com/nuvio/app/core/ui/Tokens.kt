@@ -16,6 +16,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** Local navigation preference; deliberately excluded from the official sync payload. */
+enum class AnimationIntensity(val fraction: Float) {
+    SUBTLE(0.65f), STANDARD(1f), CINEMATIC(1.25f);
+
+    fun durationMillis(duration: Int): Int = (duration.coerceAtLeast(0) * fraction).toInt()
+    fun scale(value: Float): Float = 1f + (value - 1f) * fraction
+
+    companion object {
+        fun fromName(value: String?): AnimationIntensity = entries.firstOrNull { it.name == value } ?: STANDARD
+    }
+}
+
+@Immutable
+data class UiMotionPolicy(
+    val mode: NavigationMotion = NavigationMotion.FULL,
+    val intensity: AnimationIntensity = AnimationIntensity.STANDARD,
+) {
+    val allowsSpatialEffects: Boolean get() = mode.allowsSpatialEffects
+    fun durationMillis(duration: Int): Int = mode.durationMillis(intensity.durationMillis(duration))
+    fun scale(value: Float): Float = if (allowsSpatialEffects) intensity.scale(value) else 1f
+}
+
 enum class NavigationMotion {
     FULL, REDUCED, OFF;
 
@@ -388,7 +409,9 @@ internal fun defaultNuvioThemeTokens(
     amoled: Boolean,
     colorScheme: ColorScheme?,
     motion: NavigationMotion = NavigationMotion.FULL,
+    intensity: AnimationIntensity = AnimationIntensity.STANDARD,
 ): NuvioThemeTokens {
+    val motionPolicy = UiMotionPolicy(motion, intensity)
     val background = if (amoled) Color.Black else palette.background
     val textPrimary = Color(0xFFF5F7F8)
     val textSecondary = Color(0xFFB8BEC5)
@@ -486,12 +509,12 @@ internal fun defaultNuvioThemeTokens(
         ),
         motion = NuvioMotionTokens(
             instantMillis = NuvioTokens.Motion.instantMillis,
-            fastMillis = motion.durationMillis(NuvioTokens.Motion.fastMillis),
-            normalMillis = motion.durationMillis(NuvioTokens.Motion.normalMillis),
-            sheetEnterMillis = motion.durationMillis(NuvioTokens.Motion.sheetEnterMillis),
-            sheetExitMillis = motion.durationMillis(NuvioTokens.Motion.sheetExitMillis),
-            slowMillis = motion.durationMillis(NuvioTokens.Motion.slowMillis),
-            cinematicMillis = motion.durationMillis(NuvioTokens.Motion.cinematicMillis),
+            fastMillis = motionPolicy.durationMillis(NuvioTokens.Motion.fastMillis),
+            normalMillis = motionPolicy.durationMillis(NuvioTokens.Motion.normalMillis),
+            sheetEnterMillis = motionPolicy.durationMillis(NuvioTokens.Motion.sheetEnterMillis),
+            sheetExitMillis = motionPolicy.durationMillis(NuvioTokens.Motion.sheetExitMillis),
+            slowMillis = motionPolicy.durationMillis(NuvioTokens.Motion.slowMillis),
+            cinematicMillis = motionPolicy.durationMillis(NuvioTokens.Motion.cinematicMillis),
             standard = NuvioTokens.Motion.standard,
             emphasized = NuvioTokens.Motion.emphasized,
             decelerate = NuvioTokens.Motion.decelerate,

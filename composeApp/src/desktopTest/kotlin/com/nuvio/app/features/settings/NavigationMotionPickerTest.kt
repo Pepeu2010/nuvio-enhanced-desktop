@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import com.nuvio.app.core.ui.NavigationMotion
+import com.nuvio.app.core.ui.AnimationIntensity
 import com.nuvio.app.core.ui.NuvioTheme
 import java.io.File
 import javax.imageio.ImageIO
@@ -25,6 +26,36 @@ import org.junit.Rule
 /** Exercises the same existing adaptive picker now used by Appearance. */
 class NavigationMotionPickerTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun intensityPickerUsesMouseAndKeyboardWithTheEffectiveNativeTheme() {
+        val selected = mutableStateOf(AnimationIntensity.STANDARD)
+        compose.setContent {
+            NuvioTheme(animationIntensity = selected.value) {
+                TrackingAdaptivePicker(
+                    isTablet = true,
+                    title = "Intensidade de animação",
+                    subtitle = "Reduzido e Desligado têm prioridade.",
+                    selectedValue = selected.value,
+                    options = listOf(
+                        TrackingPickerOption(AnimationIntensity.SUBTLE, "Sutil"),
+                        TrackingPickerOption(AnimationIntensity.STANDARD, "Padrão"),
+                        TrackingPickerOption(AnimationIntensity.CINEMATIC, "Cinemática"),
+                    ),
+                    onSelected = { selected.value = it },
+                    onDismiss = {},
+                )
+            }
+        }
+        compose.onNodeWithText("Sutil").performClick()
+        compose.runOnIdle { assertEquals(AnimationIntensity.SUBTLE, selected.value) }
+        compose.onNodeWithText("Cinemática").performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+        compose.onNodeWithText("Cinemática").performKeyInput { pressKey(Key.Enter) }
+        compose.runOnIdle { assertEquals(AnimationIntensity.CINEMATIC, selected.value) }
+        val output = File("build/reports/navigation-motion").apply { mkdirs() }
+        val root = compose.onNode(isRoot() and hasAnyDescendant(hasText("Intensidade de animação")))
+        ImageIO.write(root.captureToImage().toAwtImage(), "png", File(output, "intensity-cinematic.png"))
+    }
 
     @Test
     fun existingPickerSupportsMouseAndKeyboardWithoutAddingAnotherSettingsFlow() {

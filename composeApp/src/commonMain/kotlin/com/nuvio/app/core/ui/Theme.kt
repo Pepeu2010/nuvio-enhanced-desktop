@@ -28,6 +28,7 @@ import org.jetbrains.compose.resources.Font
 
 val LocalAppTheme = staticCompositionLocalOf { AppTheme.WHITE }
 val LocalNavigationMotion = androidx.compose.runtime.compositionLocalOf { NavigationMotion.FULL }
+val LocalUiMotion = androidx.compose.runtime.compositionLocalOf { UiMotionPolicy() }
 val LocalThemePalette = staticCompositionLocalOf { ThemeColors.White }
 
 val MaterialTheme.themePalette: ThemeColorPalette
@@ -220,6 +221,7 @@ fun NuvioTheme(
     appTheme: AppTheme = AppTheme.WHITE,
     amoled: Boolean = false,
     navigationMotion: NavigationMotion = NavigationMotion.FULL,
+    animationIntensity: AnimationIntensity = AnimationIntensity.STANDARD,
     desktopUiScale: Float = NuvioDesktopMinUiScale,
     customThemeColors: CustomThemeColors = CustomThemeColors.Default,
     content: @Composable () -> Unit,
@@ -228,7 +230,7 @@ fun NuvioTheme(
         ThemeColors.getColorPalette(appTheme, customThemeColors)
     }
     val colorScheme = buildColorScheme(palette, amoled = amoled)
-    val tokens = defaultNuvioThemeTokens(palette, amoled = amoled, colorScheme = colorScheme, motion = navigationMotion)
+    val tokens = defaultNuvioThemeTokens(palette, amoled = amoled, colorScheme = colorScheme, motion = navigationMotion, intensity = animationIntensity)
 
     val density = LocalDensity.current
     val effectiveDesktopUiScale = if (isDesktop) {
@@ -247,6 +249,7 @@ fun NuvioTheme(
         LocalRippleConfiguration provides NuvioRippleConfiguration,
         LocalAppTheme provides appTheme,
         LocalNavigationMotion provides navigationMotion,
+        LocalUiMotion provides UiMotionPolicy(navigationMotion, animationIntensity),
         LocalThemePalette provides palette,
     ) {
         MaterialTheme(

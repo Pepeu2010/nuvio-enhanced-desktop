@@ -45,7 +45,7 @@ internal fun DesktopNavigationBar(
     glowEnabled: Boolean = true,
 ) {
     if (items.isEmpty()) return
-    val uiMotion = LocalNavigationMotion.current
+    val uiMotion = LocalUiMotion.current
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val isHomeSelected = items.first().selected

@@ -46,7 +46,7 @@ private val LocalSkeletonAnimation = staticCompositionLocalOf<SkeletonAnimation?
 @Composable
 internal fun SkeletonAnimationProvider(content: @Composable () -> Unit) {
     val animation = remember { SkeletonAnimation() }
-    val uiMotion = LocalNavigationMotion.current
+    val uiMotion = LocalUiMotion.current
     val isActive by remember { derivedStateOf { animation.consumers > 0 } }
     if (isActive && uiMotion.allowsSpatialEffects) {
         LaunchedEffect(animation) {
@@ -121,7 +121,7 @@ internal fun Modifier.skeleton(
 
 @Composable
 internal fun Modifier.shimmer(active: Boolean = true): Modifier {
-    if (!active || !LocalNavigationMotion.current.allowsSpatialEffects) return this
+    if (!active || !LocalUiMotion.current.allowsSpatialEffects) return this
     val progress = rememberSkeletonProgress()
 
     return graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }

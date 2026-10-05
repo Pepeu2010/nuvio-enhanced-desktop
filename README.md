@@ -12,6 +12,8 @@ O código de main evolui por incrementos. A preferência local por perfil **Movi
 
 O incremento **1-A.2 em main, ainda fora da alpha.2**, estende essa política ao shell, tokens, hover dos posters e skeletons. Nos modos reduzidos, a navegação Jelly mantém clique/drag sem elasticidade ou loop de frames, e os rótulos adaptativos ficam estáveis. Passaram 25 testes direcionados, incluindo interação real dos componentes Compose, e o MSI foi compilado. Outros efeitos e a identidade visual completa continuam pendentes.
 
+O incremento **1-A.3, também fora da alpha.2**, acrescenta intensidade Sutil, Padrão e Cinemática por perfil, integrada à mesma área Aparência. Reduzido e Desligado prevalecem sobre a intensidade. Passaram 32 testes direcionados, incluindo seleção real com mouse/teclado e persistência em armazenamento isolado, e o MSI foi compilado. A preferência local é preservada ao substituir os dados de sync e não altera seus contratos. [Evidências](https://github.com/Pepeu2010/nuvio-enhanced/blob/main/docs/intensity-ui-qa.json).
+
 ## O que muda e o que vem depois
 
 A fundação já tem instalação/dados/cache/updater próprios, relatórios externos de falhas desligados por padrão, redaction nos diagnósticos revisados e correção da recompilação da ponte Windows.

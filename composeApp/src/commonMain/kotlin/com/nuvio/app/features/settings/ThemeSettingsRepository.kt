@@ -2,6 +2,7 @@ package com.nuvio.app.features.settings
 
 import com.nuvio.app.core.ui.AppTheme
 import com.nuvio.app.core.ui.NavigationMotion
+import com.nuvio.app.core.ui.AnimationIntensity
 import com.nuvio.app.core.ui.CustomThemeColors
 import com.nuvio.app.core.ui.NativeTabBridge
 import com.nuvio.app.core.ui.ThemeColors
@@ -34,6 +35,8 @@ object ThemeSettingsRepository {
 
     private val _navigationMotion = MutableStateFlow(NavigationMotion.FULL)
     val navigationMotion: StateFlow<NavigationMotion> = _navigationMotion.asStateFlow()
+    private val _animationIntensity = MutableStateFlow(AnimationIntensity.STANDARD)
+    val animationIntensity: StateFlow<AnimationIntensity> = _animationIntensity.asStateFlow()
 
     private val _liquidGlassNativeTabBarEnabled = MutableStateFlow(false)
     val liquidGlassNativeTabBarEnabled: StateFlow<Boolean> = _liquidGlassNativeTabBarEnabled.asStateFlow()
@@ -71,6 +74,7 @@ object ThemeSettingsRepository {
         _customThemeColors.value = CustomThemeColors.solid(CustomThemeColors.Default.second)
         _amoledEnabled.value = false
         _navigationMotion.value = NavigationMotion.FULL
+        _animationIntensity.value = AnimationIntensity.STANDARD
         _liquidGlassNativeTabBarEnabled.value = false
         _desktopNavigationLayout.value = DesktopNavigationLayout.Default
         NativeTabBridge.publishAccentColor(ThemeColors.White.nativeAccentHex)
@@ -97,6 +101,7 @@ object ThemeSettingsRepository {
         applyEffectiveTheme()
         _amoledEnabled.value = ThemeSettingsStorage.loadAmoledEnabled() ?: false
         _navigationMotion.value = NavigationMotion.fromName(ThemeSettingsStorage.loadNavigationMotion())
+        _animationIntensity.value = AnimationIntensity.fromName(ThemeSettingsStorage.loadAnimationIntensity())
         val liquidGlassEnabled = ThemeSettingsStorage.loadLiquidGlassNativeTabBarEnabled() ?: false
         _liquidGlassNativeTabBarEnabled.value = liquidGlassEnabled
         NativeTabBridge.publishLiquidGlassEnabled(liquidGlassEnabled)
@@ -143,6 +148,13 @@ object ThemeSettingsRepository {
         if (_navigationMotion.value == mode) return
         ThemeSettingsStorage.saveNavigationMotion(mode.name)
         _navigationMotion.value = mode
+    }
+
+    fun setAnimationIntensity(intensity: AnimationIntensity) {
+        ensureLoaded()
+        if (_animationIntensity.value == intensity) return
+        ThemeSettingsStorage.saveAnimationIntensity(intensity.name)
+        _animationIntensity.value = intensity
     }
 
     fun setLiquidGlassNativeTabBar(enabled: Boolean) {

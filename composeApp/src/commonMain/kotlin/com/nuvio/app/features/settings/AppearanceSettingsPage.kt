@@ -29,6 +29,12 @@ import com.nuvio.app.isDesktop
 import com.nuvio.app.core.ui.floatingNavigationGlowSupported
 import com.nuvio.app.core.ui.AppTheme
 import com.nuvio.app.core.ui.NavigationMotion
+import com.nuvio.app.core.ui.AnimationIntensity
+import nuvio.composeapp.generated.resources.enhanced_animation_intensity
+import nuvio.composeapp.generated.resources.enhanced_animation_intensity_description
+import nuvio.composeapp.generated.resources.enhanced_intensity_subtle
+import nuvio.composeapp.generated.resources.enhanced_intensity_standard
+import nuvio.composeapp.generated.resources.enhanced_intensity_cinematic
 import nuvio.composeapp.generated.resources.enhanced_navigation_motion
 import nuvio.composeapp.generated.resources.enhanced_navigation_motion_description
 import nuvio.composeapp.generated.resources.enhanced_motion_full
@@ -130,7 +136,9 @@ internal fun LazyListScope.appearanceSettingsContent(
     item {
         var showLanguageSheet by rememberSaveable { mutableStateOf(false) }
         var showMotionPicker by rememberSaveable { mutableStateOf(false) }
+        var showIntensityPicker by rememberSaveable { mutableStateOf(false) }
         val navigationMotion by ThemeSettingsRepository.navigationMotion.collectAsStateWithLifecycle()
+        val animationIntensity by ThemeSettingsRepository.animationIntensity.collectAsStateWithLifecycle()
         var showLanguageRestartDialog by remember { mutableStateOf(false) }
         val layoutDirection = LocalLayoutDirection.current
         var showDesktopNavigationSheet by rememberSaveable { mutableStateOf(false) }
@@ -171,8 +179,14 @@ internal fun LazyListScope.appearanceSettingsContent(
                         title = stringResource(Res.string.enhanced_navigation_motion),
                         description = stringResource(navigationMotion.labelRes),
                         isTablet = isTablet,
-                        onClick = { showMotionPicker = true },
-                    )
+                    onClick = { showMotionPicker = true },
+                )
+                SettingsNavigationRow(
+                    title = stringResource(Res.string.enhanced_animation_intensity),
+                    description = stringResource(animationIntensity.labelRes),
+                    isTablet = isTablet,
+                    onClick = { showIntensityPicker = true },
+                )
                     SettingsGroupDivider(isTablet = isTablet)
                     val desktopNavDescription = if (isTablet) {
                         stringResource(desktopNavigationLayout.labelRes)
@@ -270,6 +284,21 @@ internal fun LazyListScope.appearanceSettingsContent(
                     showMotionPicker = false
                 },
                 onDismiss = { showMotionPicker = false },
+            )
+        }
+
+        if (showIntensityPicker) {
+            TrackingAdaptivePicker(
+                isTablet = isTablet,
+                title = stringResource(Res.string.enhanced_animation_intensity),
+                subtitle = stringResource(Res.string.enhanced_animation_intensity_description),
+                selectedValue = animationIntensity,
+                options = AnimationIntensity.entries.map { TrackingPickerOption(it, stringResource(it.labelRes)) },
+                onSelected = {
+                    ThemeSettingsRepository.setAnimationIntensity(it)
+                    showIntensityPicker = false
+                },
+                onDismiss = { showIntensityPicker = false },
             )
         }
 
@@ -468,6 +497,13 @@ private val NavigationMotion.labelRes: StringResource
         NavigationMotion.FULL -> Res.string.enhanced_motion_full
         NavigationMotion.REDUCED -> Res.string.enhanced_motion_reduced
         NavigationMotion.OFF -> Res.string.enhanced_motion_off
+    }
+
+private val AnimationIntensity.labelRes: StringResource
+    get() = when (this) {
+        AnimationIntensity.SUBTLE -> Res.string.enhanced_intensity_subtle
+        AnimationIntensity.STANDARD -> Res.string.enhanced_intensity_standard
+        AnimationIntensity.CINEMATIC -> Res.string.enhanced_intensity_cinematic
     }
 
 @OptIn(ExperimentalMaterial3Api::class)
