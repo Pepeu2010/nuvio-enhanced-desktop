@@ -41,6 +41,16 @@ class DesktopJellyNavigationTest {
     private var profileOpened = false
 
     @Test
+    fun disabledAnimationsStillExpandLabelsAndNavigateExactlyOnce() {
+        setContent(motion = NavigationMotion.OFF)
+        compose.onNodeWithContentDescription("Search").performMouseInput { enter(center); click() }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Search").assertIsSelected()
+        compose.runOnIdle { assertEquals(listOf(1), clicks) }
+        savePreview("off")
+    }
+
+    @Test
     fun mouseSelectionNavigatesOnceAndKeepsDesktopLabels() {
         setContent()
         compose.onNodeWithContentDescription("Library").performMouseInput {
@@ -81,11 +91,11 @@ class DesktopJellyNavigationTest {
         }
     }
 
-    private fun setContent(withProfile: Boolean = false) {
+    private fun setContent(withProfile: Boolean = false, motion: NavigationMotion = NavigationMotion.FULL) {
         val labels = listOf("Home", "Search", "Library", "Settings")
         val icons = listOf(Icons.Default.Home, Icons.Default.Search, Icons.Default.VideoLibrary, Icons.Default.Settings)
         compose.setContent {
-            NuvioTheme {
+            NuvioTheme(navigationMotion = motion) {
                 Box(Modifier.size(640.dp, 220.dp).background(Color(0xFF151619))) {
                     DesktopNavigationBar(
                         items = labels.mapIndexed { index, label ->

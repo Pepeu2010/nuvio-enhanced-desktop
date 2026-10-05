@@ -12,6 +12,24 @@ import kotlin.test.assertTrue
 
 class CustomThemeColorsTest {
     @Test
+    fun themeMotionPolicyKeepsAppearanceAndFocusColorsWhileDisablingAllTokenDurations() {
+        val full = defaultNuvioThemeTokens(ThemeColors.White, false, null)
+        val off = defaultNuvioThemeTokens(ThemeColors.White, false, null, NavigationMotion.OFF)
+        val reduced = defaultNuvioThemeTokens(ThemeColors.White, false, null, NavigationMotion.REDUCED)
+        assertEquals(full.colors, off.colors)
+        assertEquals(full.components, off.components)
+        assertEquals(0, off.motion.fastMillis)
+        assertEquals(0, off.motion.normalMillis)
+        assertEquals(0, off.motion.sheetEnterMillis)
+        assertEquals(0, off.motion.sheetExitMillis)
+        assertEquals(0, off.motion.slowMillis)
+        assertEquals(0, off.motion.cinematicMillis)
+        assertEquals(120, reduced.motion.cinematicMillis)
+        assertEquals(120, reduced.motion.normalMillis)
+        assertEquals(220, full.motion.normalMillis)
+    }
+
+    @Test
     fun savedColorsUseTheTvFormat() {
         assertEquals("#B75AFF,#EC70A9,#FFB37A", CustomThemeColors.Default.encode())
         val colors = CustomThemeColors(0x000001, 0x123ABC, 0xFFFFFF)

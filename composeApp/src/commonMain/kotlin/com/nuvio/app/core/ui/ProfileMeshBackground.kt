@@ -21,7 +21,7 @@ fun ProfileMeshBackground(
 ) {
     val animatedProfileColor by animateColorAsState(
         targetValue = profileColor,
-        animationSpec = tween(durationMillis = 520),
+        animationSpec = tween(durationMillis = LocalNavigationMotion.current.durationMillis(520)),
         label = "profileMeshBackgroundColor",
     )
     val baseColor = Color.Black

@@ -387,6 +387,7 @@ internal fun defaultNuvioThemeTokens(
     palette: ThemeColorPalette,
     amoled: Boolean,
     colorScheme: ColorScheme?,
+    motion: NavigationMotion = NavigationMotion.FULL,
 ): NuvioThemeTokens {
     val background = if (amoled) Color.Black else palette.background
     val textPrimary = Color(0xFFF5F7F8)
@@ -485,12 +486,12 @@ internal fun defaultNuvioThemeTokens(
         ),
         motion = NuvioMotionTokens(
             instantMillis = NuvioTokens.Motion.instantMillis,
-            fastMillis = NuvioTokens.Motion.fastMillis,
-            normalMillis = NuvioTokens.Motion.normalMillis,
-            sheetEnterMillis = NuvioTokens.Motion.sheetEnterMillis,
-            sheetExitMillis = NuvioTokens.Motion.sheetExitMillis,
-            slowMillis = NuvioTokens.Motion.slowMillis,
-            cinematicMillis = NuvioTokens.Motion.cinematicMillis,
+            fastMillis = motion.durationMillis(NuvioTokens.Motion.fastMillis),
+            normalMillis = motion.durationMillis(NuvioTokens.Motion.normalMillis),
+            sheetEnterMillis = motion.durationMillis(NuvioTokens.Motion.sheetEnterMillis),
+            sheetExitMillis = motion.durationMillis(NuvioTokens.Motion.sheetExitMillis),
+            slowMillis = motion.durationMillis(NuvioTokens.Motion.slowMillis),
+            cinematicMillis = motion.durationMillis(NuvioTokens.Motion.cinematicMillis),
             standard = NuvioTokens.Motion.standard,
             emphasized = NuvioTokens.Motion.emphasized,
             decelerate = NuvioTokens.Motion.decelerate,

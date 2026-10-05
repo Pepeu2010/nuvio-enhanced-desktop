@@ -45,6 +45,7 @@ internal fun DesktopNavigationBar(
     glowEnabled: Boolean = true,
 ) {
     if (items.isEmpty()) return
+    val uiMotion = LocalNavigationMotion.current
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val isHomeSelected = items.first().selected
@@ -54,23 +55,25 @@ internal fun DesktopNavigationBar(
     val isFrosted = isHovered || profileSwitcherOpen ||
         ((isHomeSelected || isSettingsSelected) && isScrolledAwayFromTop)
     val labelFraction by animateFloatAsState(
-        targetValue = desktopNavigationLabelFraction(navBarStyle, isHomeSelected, isHeroEnabled, isHovered, profileSwitcherOpen, isScrolledAwayFromTop),
-        animationSpec = tween(320, easing = FastOutSlowInEasing),
+        targetValue = if (uiMotion.allowsSpatialEffects) {
+            desktopNavigationLabelFraction(navBarStyle, isHomeSelected, isHeroEnabled, isHovered, profileSwitcherOpen, isScrolledAwayFromTop)
+        } else if (navBarStyle == NavBarStyle.COMPACT) 0f else 1f,
+        animationSpec = tween(uiMotion.durationMillis(240), easing = FastOutSlowInEasing),
         label = "desktop_nav_labels",
     )
     val surfaceColor by animateColorAsState(
         targetValue = if (isFrosted) Color(0xFF1C1C1E).copy(alpha = 0.30f) else Color(0xFF0F0F11).copy(alpha = 0.20f),
-        animationSpec = tween(320, easing = FastOutSlowInEasing),
+        animationSpec = tween(uiMotion.durationMillis(240), easing = FastOutSlowInEasing),
         label = "desktop_nav_surface",
     )
     val sheenAlpha by animateFloatAsState(
         targetValue = if (isFrosted) 1f else 0f,
-        animationSpec = tween(320, easing = FastOutSlowInEasing),
+        animationSpec = tween(uiMotion.durationMillis(240), easing = FastOutSlowInEasing),
         label = "desktop_nav_sheen",
     )
     val glowStrength by animateFloatAsState(
         targetValue = if (glowEnabled) 1f else 0f,
-        animationSpec = tween(420, easing = NuvioTokens.Motion.standard),
+        animationSpec = tween(uiMotion.durationMillis(400), easing = NuvioTokens.Motion.standard),
         label = "desktop_nav_glow",
     )
     BoxWithConstraints(

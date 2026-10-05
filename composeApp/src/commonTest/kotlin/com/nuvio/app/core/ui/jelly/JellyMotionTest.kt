@@ -7,6 +7,35 @@ import kotlin.test.assertTrue
 
 class JellyMotionTest {
     @Test
+    fun `disabled spatial effects preserve tap drag cancel and bounded destinations without frames`() {
+        val motion = JellyMotion(1, 4, allowsSpatialEffects = false)
+        motion.resize(320f, 64f, 4)
+        motion.select(3)
+        assertEquals(3f, motion.frame.position)
+        assertFalse(motion.running)
+        motion.begin(40f, 32f)
+        assertEquals(0, motion.finish())
+        assertEquals(0f, motion.frame.position)
+        motion.begin(40f, 32f)
+        motion.drag(1000f, -500f)
+        assertEquals(3, motion.finish())
+        assertEquals(3f, motion.frame.position)
+        motion.cancel(1)
+        motion.advance(1.0 / 60)
+        assertEquals(1f, motion.frame.position)
+        assertEquals(1f, motion.frame.pillScaleX)
+        assertEquals(1f, motion.frame.pillScaleY)
+        assertEquals(1f, motion.frame.contentScale)
+        assertEquals(0f, motion.frame.panelOffset)
+        assertEquals(0f, motion.frame.trackOffsetY)
+        assertFalse(motion.running)
+        assertFalse(motion.dragging)
+        motion.resize(200f, 48f, 2)
+        motion.select(100)
+        assertEquals(1f, motion.frame.position)
+    }
+
+    @Test
     fun `matches upstream pointer and release frames at 60 and 120 Hz`() {
         val references = mapOf(
             60 to listOf(

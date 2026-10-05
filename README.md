@@ -10,6 +10,8 @@ A base continua em Kotlin Multiplatform/Compose, commonMain e libmpv/JNI, com a 
 
 O código de main evolui por incrementos. A preferência local por perfil **Movimento de navegação** integra a alpha.2: completo, reduzido e desligado para as transições revisadas. Home, previews e os demais efeitos serão tratados nas etapas seguintes. O milestone visual completo ainda está em execução.
 
+O incremento **1-A.2 em main, ainda fora da alpha.2**, estende essa política ao shell, tokens, hover dos posters e skeletons. Nos modos reduzidos, a navegação Jelly mantém clique/drag sem elasticidade ou loop de frames, e os rótulos adaptativos ficam estáveis. Passaram 25 testes direcionados, incluindo interação real dos componentes Compose, e o MSI foi compilado. Outros efeitos e a identidade visual completa continuam pendentes.
+
 ## O que muda e o que vem depois
 
 A fundação já tem instalação/dados/cache/updater próprios, relatórios externos de falhas desligados por padrão, redaction nos diagnósticos revisados e correção da recompilação da ponte Windows.

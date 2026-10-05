@@ -24,7 +24,7 @@ internal data class JellyFrame(
 )
 
 @Stable
-internal class JellyMotion(initialIndex: Int, count: Int) {
+internal class JellyMotion(initialIndex: Int, count: Int, private val allowsSpatialEffects: Boolean = true) {
     private val position = JellySpring(initialIndex.coerceAtLeast(0).toDouble(), 1000.0, 1.0)
     private val velocity = JellySpring(0.0, 300.0, 0.5)
     private val press = JellySpring(0.0, 1000.0, 1.0)
@@ -72,6 +72,11 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
     fun select(index: Int) {
         dragging = false
         if (index >= 0) target = index.coerceAtMost(maxIndex).toDouble()
+        if (!allowsSpatialEffects) {
+            running = false
+            publish()
+            return
+        }
         releasePending = true
         pressTarget = 0.0
         shapeTarget = 1.0
@@ -92,7 +97,8 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
         pressTarget = 1.0
         shapeTarget = 1.3
         panel.velocity = 0.0
-        running = true
+        running = allowsSpatialEffects
+        if (!allowsSpatialEffects) publish()
     }
 
     fun drag(x: Float, y: Float) {
@@ -115,7 +121,8 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
         panel.velocity = 0.0
         target = index.toDouble()
         releasePending = true
-        running = true
+        running = allowsSpatialEffects
+        if (!allowsSpatialEffects) publish()
         return index
     }
 
@@ -126,6 +133,11 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
     }
 
     fun advance(seconds: Double) {
+        if (!allowsSpatialEffects) {
+            running = false
+            publish()
+            return
+        }
         val delta = seconds.coerceIn(0.0, 0.064)
         target = target.coerceIn(0.0, maxIndex.toDouble())
         position.advance(target, delta)
@@ -156,6 +168,11 @@ internal class JellyMotion(initialIndex: Int, count: Int) {
     private fun indexAt(x: Double): Int = floor((x - 4) / tabWidth).toInt().coerceIn(0, maxIndex)
 
     private fun publish() {
+        if (!allowsSpatialEffects) {
+            // Preserve drag/tap destination logic, without elastic movement or a frame loop.
+            frame = JellyFrame(position = target.toFloat(), originX = originX.toFloat())
+            return
+        }
         val speed = velocity.value / 10
         frame = JellyFrame(
             position = position.value.toFloat(),

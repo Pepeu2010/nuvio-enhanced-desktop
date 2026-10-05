@@ -557,6 +557,7 @@ internal fun Modifier.desktopPosterHoverScale(
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ): Modifier {
     if (!enabled || !isDesktop) return this
+    if (!LocalNavigationMotion.current.allowsSpatialEffects) return this.hoverable(interactionSource)
 
     val hovered by interactionSource.collectIsHoveredAsState()
     val scale by animateFloatAsState(
