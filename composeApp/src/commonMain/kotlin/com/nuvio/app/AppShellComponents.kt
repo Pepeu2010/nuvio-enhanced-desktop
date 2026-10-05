@@ -878,6 +878,14 @@ internal fun DesktopHoverSidebar(
                     )
                 }
             }
+            if (!profileStackVisible && maxHeight >= 360.dp) {
+                AppBrandWordmark(
+                    contentDescription = stringResource(Res.string.app_brand_name),
+                    compact = !sidebarExpanded,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                        .padding(bottom = 22.dp).height(40.dp),
+                )
+            }
         }
     }
 }
@@ -963,7 +971,7 @@ private fun DesktopSidebarItem(
             .height(DesktopSidebarItemHeight)
             .padding(horizontal = 6.dp, vertical = 4.dp)
             .semantics { this.selected = selected },
-        color = Color.Transparent,
+        color = if (selected) tokens.colors.accent.copy(alpha = 0.08f) else Color.Transparent,
         shape = RoundedCornerShape(16.dp),
     ) {
         Row(

@@ -9,7 +9,9 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import com.nuvio.app.core.ui.LocalScreenActive
+import com.nuvio.app.core.ui.LocalUiMotion
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,6 +86,7 @@ internal fun MemberBrandWordmark(
         MemberAccessRepository.ensureStarted()
         MemberAccessRepository.access
     }.collectAsStateWithLifecycle()
+    val motion = LocalUiMotion.current
 
     Row(
         modifier = modifier.height(height),
@@ -95,9 +99,11 @@ internal fun MemberBrandWordmark(
         val tier = access.tier
         AnimatedVisibility(
             visible = tier != null,
-            enter = fadeIn(tween(360)) +
-                expandHorizontally(tween(420), expandFrom = Alignment.Start) +
-                scaleIn(tween(420), initialScale = 0.94f),
+            enter = fadeIn(tween(motion.durationMillis(360))) +
+                expandHorizontally(tween(if (motion.allowsSpatialEffects) motion.durationMillis(420) else 0), expandFrom = Alignment.Start) +
+                scaleIn(tween(if (motion.allowsSpatialEffects) motion.durationMillis(420) else 0), initialScale = motion.scale(0.94f)),
+            exit = fadeOut(tween(motion.durationMillis(180))) +
+                shrinkHorizontally(tween(if (motion.allowsSpatialEffects) motion.durationMillis(180) else 0), shrinkTowards = Alignment.Start),
         ) {
             if (tier != null) {
                 MemberBadge(
@@ -142,14 +148,15 @@ internal fun rememberMemberBadgeGradientBrush(
     style: MemberBadgeStyle,
     size: IntSize,
 ): Brush {
-    val gradientProgress = if (LocalScreenActive.current) {
+    val motion = LocalUiMotion.current
+    val gradientProgress = if (LocalScreenActive.current && motion.allowsSpatialEffects) {
         val gradientTransition = rememberInfiniteTransition(label = "memberBadgeGradient")
         val progress by gradientTransition.animateFloat(
             initialValue = 0f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
                 animation = tween(
-                    durationMillis = MemberBadgeSweepHalfDurationMs,
+                    durationMillis = motion.durationMillis(MemberBadgeSweepHalfDurationMs),
                     easing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f),
                 ),
                 repeatMode = RepeatMode.Reverse,

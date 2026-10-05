@@ -16,6 +16,8 @@ O incremento **1-A.3, também fora da alpha.2**, acrescenta intensidade Sutil, P
 
 A continuação no **menu lateral padrão** integra sua expansão, rótulos e offsets à política de movimento. No modo adaptativo Reduzido/Desligado, o menu e o padding ficam estáveis; Compacto permanece uma opção explícita. Os itens expõem seleção acessível. Passaram 27 testes direcionados, incluindo clique e Enter no componente lateral real, e o MSI foi compilado. A captura/teste do componente não substitui QA integral do app. Esta continuação também está fora da alpha.2.
 
+A marca própria agora é renderizada no `AppBrandWordmark` existente e no rodapé do menu: símbolo original, NUVIO/ENHANCED e nome acessível nos idiomas disponíveis. As variantes de artwork continuam usando a seleção de ícone/tema existente. O selo de membro mantém seus dados e passa a respeitar a política de movimento, com gradiente estático em Reduzido/Desligado. Passaram 30 testes direcionados e o MSI foi compilado; a captura do menu real foi inspecionada, com clique/Enter e alvo de mouse estável. Este incremento permanece fora da alpha.2, sem declarar a identidade visual completa ou QA de todas as telas.
+
 ## O que muda e o que vem depois
 
 A fundação já tem instalação/dados/cache/updater próprios, relatórios externos de falhas desligados por padrão, redaction nos diagnósticos revisados e correção da recompilação da ponte Windows.

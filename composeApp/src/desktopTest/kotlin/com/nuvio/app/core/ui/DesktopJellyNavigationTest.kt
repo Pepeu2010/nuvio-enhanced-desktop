@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -76,6 +77,7 @@ class DesktopJellyNavigationTest {
             }
         }
         compose.waitForIdle()
+        compose.onNodeWithContentDescription("Nuvio Enhanced").assertIsDisplayed()
         val search = compose.onNodeWithContentDescription(searchLabel)
         val beforeHover = search.fetchSemanticsNode().boundsInRoot
         search.performMouseInput { enter(center) }
