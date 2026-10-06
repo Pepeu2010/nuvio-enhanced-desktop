@@ -243,7 +243,11 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi() {
             )
         else -> ""
     }
+    val timedMarkers = rememberPlayerTimedMarkers(
+        com.nuvio.app.features.player.metadata.TimedMetadataScope(parentMetaId, parentMetaType, activeVideoId ?: parentMetaId),
+        skipIntervals, playbackSnapshot.durationMs)
     val playerControlsState = PlayerControlsState(
+        timedMarkers = timedMarkers,
         title = title,
         episodeText = episodeText,
         streamTitle = activeStreamTitle,
@@ -625,7 +629,9 @@ private fun PlayerScreenRuntime.RenderPlayerControls(displayedPositionMs: Long, 
         exit = fadeOut(),
     ) {
         PlayerControlsShell(
-            title = title,
+            timedMarkers = rememberPlayerTimedMarkers(
+                com.nuvio.app.features.player.metadata.TimedMetadataScope(parentMetaId, parentMetaType, activeVideoId ?: parentMetaId),
+                skipIntervals, playbackSnapshot.durationMs),            title = title,
             streamTitle = activeStreamTitle,
             providerName = activeProviderName,
             seasonNumber = activeSeasonNumber,

@@ -215,6 +215,7 @@ data class PlayerControlsState(
     val showEpisodes: Boolean = false,
     val showExternalPlayer: Boolean = false,
     val durationMs: Long = 0L,
+    val timedMarkers: List<com.nuvio.app.features.player.metadata.PlayerTimedMarker> = emptyList(),
     val positionMs: Long = 0L,
     val sourceIsLoading: Boolean = false,
     val sourceFilters: List<PlayerControlFilterItem> = emptyList(),

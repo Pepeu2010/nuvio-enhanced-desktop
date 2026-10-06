@@ -280,7 +280,8 @@ private fun HeroBackgroundLayers(
         includePagerNeighbors = includePagerNeighbors,
     )
 
-    val backgroundMotionStrength = if (desktopFrame) layout.backgroundMotionStrength else 1f
+    val allowsSpatialEffects = com.nuvio.app.core.ui.LocalUiMotion.current.allowsSpatialEffects
+    val backgroundMotionStrength = if (allowsSpatialEffects) { if (desktopFrame) layout.backgroundMotionStrength else 1f } else 0f
     layerPages.forEach { page ->
         val item = items[page % items.size]
         val imageUrl = item.banner ?: item.poster
@@ -292,7 +293,7 @@ private fun HeroBackgroundLayers(
             Modifier
                 .fillMaxWidth()
                 .height(layout.heroHeight)
-                .heroStretchZoom(stretchPx)
+                .heroStretchZoom { if (allowsSpatialEffects) stretchPx() else 0f }
         }
         AsyncImage(
             model = if (desktopFrame) originalTmdbImageUrl(imageUrl) else imageUrl,
@@ -300,7 +301,7 @@ private fun HeroBackgroundLayers(
             modifier = backgroundModifier
                 .graphicsLayer {
                     val pageOffset = heroPageOffset(pagerState, page)
-                    val scrollOffsetPx = heroScrollOffsetPx(listState, heroHeightPx)
+                    val scrollOffsetPx = if (allowsSpatialEffects) heroScrollOffsetPx(listState, heroHeightPx) else 0f
                     val scrollScale = if (desktopFrame) {
                         1f + (heroBackgroundScrollScale(scrollOffsetPx) - 1f) * backgroundMotionStrength
                     } else {
@@ -308,7 +309,7 @@ private fun HeroBackgroundLayers(
                     }
 
                     alpha = heroPageVisibility(pageOffset)
-                    translationX = -pageOffset * heroWidthPx * HERO_BACKGROUND_PARALLAX
+                    translationX = if (allowsSpatialEffects) -pageOffset * heroWidthPx * HERO_BACKGROUND_PARALLAX else 0f
                     translationY = if (desktopFrame) {
                         heroDesktopBackgroundScrollTranslationY(scrollOffsetPx) * backgroundMotionStrength
                     } else {
@@ -347,13 +348,14 @@ private fun HeroContentLayers(
         includePagerNeighbors = includePagerNeighbors,
     )
 
+    val allowsSpatialEffects = com.nuvio.app.core.ui.LocalUiMotion.current.allowsSpatialEffects
     layerPages.forEach { page ->
         Box(
             modifier = Modifier.graphicsLayer {
                 val pageOffset = heroPageOffset(pagerState, page)
 
                 alpha = heroPageVisibility(pageOffset)
-                translationX = -pageOffset * heroWidthPx * HERO_CONTENT_PARALLAX
+                translationX = if (allowsSpatialEffects) -pageOffset * heroWidthPx * HERO_CONTENT_PARALLAX else 0f
             },
         ) {
             HeroContentBlock(
@@ -413,6 +415,7 @@ private fun HeroDesktopContentLayers(
         includePagerNeighbors = includePagerNeighbors,
     )
 
+    val allowsSpatialEffects = com.nuvio.app.core.ui.LocalUiMotion.current.allowsSpatialEffects
     layerPages.forEach { page ->
         Box(
             modifier = Modifier
@@ -421,7 +424,7 @@ private fun HeroDesktopContentLayers(
                     val pageOffset = heroPageOffset(pagerState, page)
 
                     alpha = heroPageVisibility(pageOffset)
-                    translationX = -pageOffset * heroWidthPx * HERO_CONTENT_PARALLAX
+                    translationX = if (allowsSpatialEffects) -pageOffset * heroWidthPx * HERO_CONTENT_PARALLAX else 0f
                 },
         ) {
             DesktopHeroContentBlock(

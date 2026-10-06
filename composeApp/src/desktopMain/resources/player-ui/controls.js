@@ -2341,7 +2341,11 @@ const renderChrome = () => {
   syncChromeAutoHideTimer(showOpening);
 };
 
+const renderTimedMarkers = TelumiaTimedMetadata.createRenderer(
+  document.getElementById("timedMarkers"), document.getElementById("timedMarkersSummary"), document.getElementById("seek"));
+
 const render = () => {
+  renderTimedMarkers(state.durationMs > 0 ? state.timedMarkers : []);
   applyTheme();
   renderChrome();
   renderActiveModal();

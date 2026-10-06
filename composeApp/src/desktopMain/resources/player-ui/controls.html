@@ -208,7 +208,11 @@
             <span class="provider" id="providerName"></span>
           </div>
         </section>
-        <input id="seek" class="scrub" type="range" min="0" max="1000" value="0" aria-label="Seek">
+        <div class="seek-container">
+          <input id="seek" class="scrub" type="range" min="0" max="1000" value="0" aria-label="Seek">
+          <div id="timedMarkers" class="timed-markers" aria-hidden="true" hidden></div>
+        </div>
+        <span id="timedMarkersSummary" class="timed-markers-summary"></span>
         <div class="time-row">
           <span class="time-pill" id="position">00:00</span>
           <span class="time-pill" id="duration">00:00</span>
@@ -444,6 +448,7 @@
     </div>
   </div>
 
-  <script src="controls.js"></script>
+  <script src="timed-metadata.js"></script>
+<script src="controls.js"></script>
 </body>
 </html>

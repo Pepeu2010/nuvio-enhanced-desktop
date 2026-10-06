@@ -110,13 +110,15 @@ internal fun PlayerTimeline(
     onScrubFinished: (Long) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    timedMarkers: List<com.nuvio.app.features.player.metadata.PlayerTimedMarker> = emptyList(),
 ) {
     val durationMs = snapshot.durationMs.coerceAtLeast(0L)
     val rangeEnd = durationMs.coerceAtLeast(1L).toFloat()
     val bufferedFraction = (snapshot.bufferedPositionMs.toFloat() / rangeEnd).coerceIn(0f, 1f)
     val accent = MaterialTheme.colorScheme.primary
     val accentBrush = MaterialTheme.themePalette.accentBrush()
-    val description = stringResource(Res.string.player_seek_position)
+    val description = listOf(stringResource(Res.string.player_seek_position), timelineMarkerDescription(timedMarkers)).filter { it.isNotBlank() }.joinToString(" · ")
+    val motion = com.nuvio.app.core.ui.LocalUiMotion.current
     var scrubPosition by remember { mutableStateOf<Long?>(null) }
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -124,7 +126,7 @@ internal fun PlayerTimeline(
     val isInteracting = enabled && durationMs > 0L && (isPressed || isDragged)
     val trackThickness by animateDpAsState(
         targetValue = if (isInteracting) 10.dp else 6.dp,
-        animationSpec = tween(durationMillis = if (isInteracting) 140 else 180),
+        animationSpec = tween(durationMillis = motion.durationMillis(if (isInteracting) 140 else 180)),
         label = "playerTimelineThickness",
     )
 
@@ -171,6 +173,7 @@ internal fun PlayerTimeline(
                                 size = Size(size.width * (state.value / rangeEnd).coerceIn(0f, 1f), trackHeight),
                                 cornerRadius = radius,
                             )
+                            drawTimelineMarkers(timedMarkers, 35.dp.toPx())
                         },
                 )
             },

@@ -1879,4 +1879,8 @@
     <string name="telumia_read_synopsis">Ler sinopse completa</string>
     <string name="telumia_watch_trailer">Trailer</string>
     <string name="home_spotlight">EM DESTAQUE</string>
+    <string name="player_timeline_intro">Abertura</string>
+    <string name="player_timeline_recap">Recapitulação</string>
+    <string name="player_timeline_credits">Créditos</string>
+    <string name="player_timeline_post_credits">Pós-créditos</string>
 </resources>

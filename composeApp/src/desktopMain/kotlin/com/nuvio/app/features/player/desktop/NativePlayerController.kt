@@ -1246,7 +1246,7 @@ private data class NativeControlsStructureKey(
     val isInPip: Boolean,
 )
 
-private fun PlayerControlsState.toControlsJson(isFullscreen: Boolean): String =
+internal fun PlayerControlsState.toControlsJson(isFullscreen: Boolean): String =
     buildString {
         append('{')
         appendJsonField("title", title)
@@ -1533,6 +1533,17 @@ private fun PlayerControlsState.toControlsJson(isFullscreen: Boolean): String =
         appendJsonField("durationMs", durationMs)
         append(',')
         appendJsonField("positionMs", positionMs)
+        append(',')
+        appendJsonArrayField("timedMarkers", timedMarkers.take(com.nuvio.app.features.player.metadata.MAX_TIMELINE_MARKERS)) { marker ->
+            append('{')
+            appendJsonField("id", marker.id.take(1280)); append(',')
+            appendJsonField("kind", marker.kind.name); append(',')
+            appendJsonField("startFraction", marker.startFraction); append(',')
+            appendJsonField("endFraction", marker.endFraction); append(',')
+            appendJsonField("label", marker.label.take(256)); append(',')
+            appendJsonField("providerId", marker.providerId.take(256))
+            append('}')
+        }
         append(',')
         appendJsonField("sourceIsLoading", sourceIsLoading)
         append(',')

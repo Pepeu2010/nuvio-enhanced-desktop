@@ -63,6 +63,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.LayoutDirection
@@ -117,6 +118,7 @@ internal fun PlayerControlsShell(
     onScrubChange: (Long) -> Unit,
     onScrubFinished: (Long) -> Unit,
     horizontalSafePadding: androidx.compose.ui.unit.Dp,
+    timedMarkers: List<com.nuvio.app.features.player.metadata.PlayerTimedMarker> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
@@ -240,6 +242,7 @@ internal fun PlayerControlsShell(
 
             if (showPlaybackControls && useLegacyLayout) {
                 ProgressControls(
+                    timedMarkers = timedMarkers,
                     playbackSnapshot = playbackSnapshot,
                     displayedPositionMs = displayedPositionMs,
                     metrics = metrics,
@@ -282,6 +285,7 @@ internal fun PlayerControlsShell(
                         )
                     }
                     PlayerTimeline(
+                        timedMarkers = timedMarkers,
                         snapshot = playbackSnapshot,
                         displayedPositionMs = displayedPositionMs,
                         onScrubChange = onScrubChange,
@@ -597,6 +601,7 @@ internal fun PlayPauseControlButton(
 
 @Composable
 private fun ProgressControls(
+    timedMarkers: List<com.nuvio.app.features.player.metadata.PlayerTimedMarker>,
     playbackSnapshot: PlayerPlaybackSnapshot,
     displayedPositionMs: Long,
     metrics: PlayerLayoutMetrics,
@@ -619,6 +624,7 @@ private fun ProgressControls(
 
     Column(modifier = modifier) {
         PlayerSeekBar(
+            timedMarkers = timedMarkers,
             durationMs = playbackSnapshot.durationMs,
             displayedPositionMs = displayedPositionMs,
             metrics = metrics,
@@ -685,6 +691,7 @@ private fun ProgressControls(
 
 @Composable
 internal fun PlayerSeekBar(
+    timedMarkers: List<com.nuvio.app.features.player.metadata.PlayerTimedMarker> = emptyList(),
     durationMs: Long,
     displayedPositionMs: Long,
     metrics: PlayerLayoutMetrics,
@@ -693,7 +700,7 @@ internal fun PlayerSeekBar(
     modifier: Modifier = Modifier,
 ) {
     val seekDurationMs = durationMs.coerceAtLeast(1L)
-    val seekDescription = stringResource(Res.string.player_seek_position)
+    val seekDescription = listOf(stringResource(Res.string.player_seek_position), timelineMarkerDescription(timedMarkers)).filter { it.isNotBlank() }.joinToString(" · ")
     Column(modifier = modifier) {
         Slider(
             modifier = Modifier
@@ -706,7 +713,7 @@ internal fun PlayerSeekBar(
             onValueChangeFinished = { onScrubFinished(displayedPositionMs.coerceIn(0L, seekDurationMs)) },
             enabled = durationMs > 0L,
             valueRange = 0f..seekDurationMs.toFloat(),
-            track = { sliderState -> PlayerProgressTrack(sliderState) },
+            track = { sliderState -> PlayerProgressTrack(sliderState, timedMarkers) },
         )
         Row(
             modifier = Modifier
@@ -723,7 +730,7 @@ internal fun PlayerSeekBar(
 }
 
 @Composable
-private fun PlayerProgressTrack(sliderState: SliderState) {
+private fun PlayerProgressTrack(sliderState: SliderState, timedMarkers: List<com.nuvio.app.features.player.metadata.PlayerTimedMarker>) {
     val palette = MaterialTheme.themePalette
     val inactiveTrackColors = SliderDefaults.colors(
         activeTrackColor = Color.Transparent,
@@ -736,7 +743,10 @@ private fun PlayerProgressTrack(sliderState: SliderState) {
         disabledInactiveTrackColor = Color.Transparent,
     )
 
-    Box {
+    Box(Modifier.drawWithContent {
+        drawContent()
+        drawTimelineMarkers(timedMarkers, size.height / 2)
+    }) {
         SliderDefaults.Track(
             sliderState = sliderState,
             colors = inactiveTrackColors,
