@@ -45,7 +45,8 @@ internal fun LiveTvChannelTile(name: String, number: String?, logoUrl: String?, 
 @Composable
 internal fun LiveTvNowNext(nowTitle: String, nextTitle: String?, nextLabel: String, progress: Float?, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(nowTitle, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(nowTitle, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2, overflow = TextOverflow.Ellipsis)
         progress?.takeIf(Float::isFinite)?.coerceIn(0f, 1f)?.let { fraction ->
             Box(Modifier.fillMaxWidth().height(NuvioTokens.LiveTv.progressHeight)
                 .clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
