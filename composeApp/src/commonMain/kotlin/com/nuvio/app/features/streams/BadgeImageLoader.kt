@@ -1,5 +1,6 @@
 package com.nuvio.app.features.streams
 
+import com.nuvio.app.core.ui.configurePlatformBadgeImageLoader
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.request.CachePolicy
@@ -27,6 +28,7 @@ internal object BadgeImageLoader {
                 .memoryCachePolicy(CachePolicy.ENABLED)
                 .diskCachePolicy(CachePolicy.ENABLED)
                 .crossfade(false)
+                .configurePlatformBadgeImageLoader()
                 .build()
             instance = loader
             return loader

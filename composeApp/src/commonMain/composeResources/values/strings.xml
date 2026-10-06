@@ -2498,4 +2498,12 @@
     <string name="player_timeline_recap">Recap</string>
     <string name="player_timeline_credits">Credits</string>
     <string name="player_timeline_post_credits">Post-credits</string>
+    <string name="settings_cache_auto">Automatic media cache</string>
+    <string name="settings_cache_auto_description">Adapts the disk budget to device memory and free storage.</string>
+    <string name="settings_cache_limit">Manual disk budget</string>
+    <string name="settings_cache_limit_description">The selected budget respects a storage reserve. Downloads and personal data are excluded.</string>
+    <string name="settings_cache_active_budget">Active budget: %1$d MiB</string>
+    <string name="settings_cache_restart">Changes apply on the next app launch.</string>
+    <string name="settings_cache_saving">Saving cache preference…</string>
+    <string name="settings_cache_save_error">Could not save the cache preference. Try again.</string>
 </resources>

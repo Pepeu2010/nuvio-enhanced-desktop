@@ -19,17 +19,12 @@ import androidx.compose.ui.graphics.asComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
-import com.nuvio.app.core.storage.DesktopStorage
 import com.nuvio.app.core.ui.NuvioAsyncImage as AsyncImage
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.request.header
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.StandardCopyOption
-import java.security.MessageDigest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -49,9 +44,6 @@ import org.jetbrains.skia.SamplingMode
 
 private const val MAX_FRAME_DIMENSION = 512
 
-// How many decoded gif bytes we're willing to keep on disk between app runs.
-private const val MAX_DISK_CACHE_FILES = 200
-
 private val desktopGifHttpClient by lazy {
     HttpClient(CIO) {
         followRedirects = true
@@ -63,57 +55,11 @@ private val desktopGifHttpClient by lazy {
 
 private val downloadSemaphore = Semaphore(4)
 
-// Disk-persisted cache of raw gif bytes, so a gif that was ever hovered doesn't need to hit
-// the network again on the next app launch - only the very first hover ever pays network cost.
-private val gifDiskCacheDir: Path by lazy {
-    DesktopStorage.cacheDir.resolve("gif-cache").also {
-        runCatching { Files.createDirectories(it) }
-    }
-}
-
-private fun gifDiskCacheFile(url: String): Path {
-    val hash = MessageDigest.getInstance("SHA-256")
-        .digest(url.toByteArray(Charsets.UTF_8))
-        .joinToString("") { "%02x".format(it) }
-    return gifDiskCacheDir.resolve("$hash.gif")
-}
-
-private fun readGifDiskCache(url: String): ByteArray? {
-    val file = gifDiskCacheFile(url)
-    return runCatching {
-        if (Files.exists(file)) Files.readAllBytes(file) else null
-    }.getOrNull()
-}
+// Shares the IMAGES quota with the existing Coil loader; cached reads remain usable offline.
+private fun readGifDiskCache(url: String): ByteArray? = com.nuvio.app.core.storage.DesktopMediaCache.readGif(url)
 
 private fun writeGifDiskCache(url: String, bytes: ByteArray) {
-    runCatching {
-        val target = gifDiskCacheFile(url)
-        Files.createDirectories(target.parent)
-        val pending = Files.createTempFile(target.parent, target.fileName.toString(), ".part")
-        try {
-            Files.write(pending, bytes)
-            runCatching {
-                Files.move(pending, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-            }.getOrElse {
-                Files.move(pending, target, StandardCopyOption.REPLACE_EXISTING)
-            }
-        } finally {
-            Files.deleteIfExists(pending)
-        }
-        trimGifDiskCache()
-    }
-}
-
-// Best-effort LRU trim so the cache folder doesn't grow unbounded over many app sessions.
-private fun trimGifDiskCache() {
-    runCatching {
-        val files = Files.list(gifDiskCacheDir).use { it.toList() }
-        if (files.size <= MAX_DISK_CACHE_FILES) return
-        files
-            .sortedBy { runCatching { Files.getLastModifiedTime(it) }.getOrNull() }
-            .take(files.size - MAX_DISK_CACHE_FILES)
-            .forEach { runCatching { Files.deleteIfExists(it) } }
-    }
+    com.nuvio.app.core.storage.DesktopMediaCache.gifCache.put(url, bytes)
 }
 
 private class GifCodecHolder(

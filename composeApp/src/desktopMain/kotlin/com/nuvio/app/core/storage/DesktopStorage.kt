@@ -5,6 +5,8 @@ import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
+import java.nio.file.AtomicMoveNotSupportedException
 import java.util.Comparator
 import java.util.Properties
 import kotlin.io.path.exists
@@ -70,12 +72,18 @@ internal object DesktopStorage {
 
         fun putString(key: String, value: String?) = synchronized(lock) {
             ensureLoaded()
+            val previous = properties.getProperty(key)
             val changed = if (value == null) {
                 properties.remove(key) != null
             } else {
                 properties.setProperty(key, value) != value
             }
-            if (changed) persist()
+            if (changed) {
+                try { persist() } catch (error: Exception) {
+                    if (previous == null) properties.remove(key) else properties.setProperty(key, previous)
+                    throw error
+                }
+            }
         }
 
         fun getBoolean(key: String): Boolean? =
@@ -141,8 +149,16 @@ internal object DesktopStorage {
 
         private fun persist() {
             Files.createDirectories(file.parent)
-            Files.newOutputStream(file).use { output ->
-                properties.store(output, "Nuvio desktop preferences")
+            val pending = Files.createTempFile(file.parent, "telumia-preferences-", ".part")
+            try {
+                Files.newOutputStream(pending).use { output -> properties.store(output, "Telumia desktop preferences") }
+                try {
+                    Files.move(pending, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                } catch (_: AtomicMoveNotSupportedException) {
+                    Files.move(pending, file, StandardCopyOption.REPLACE_EXISTING)
+                }
+            } finally {
+                Files.deleteIfExists(pending)
             }
         }
     }

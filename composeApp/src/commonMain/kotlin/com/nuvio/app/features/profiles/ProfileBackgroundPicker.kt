@@ -33,7 +33,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
-import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.nuvio.app.core.ui.themePalette
@@ -91,7 +90,6 @@ internal fun ProfileBackgroundPicker(
                         .data(imageUrl)
                         .memoryCacheKey("custom-profile-background-$imageUrl")
                         .diskCacheKey("custom-profile-background-$imageUrl")
-                        .diskCachePolicy(CachePolicy.ENABLED)
                         .crossfade(true)
                         .build(),
                     contentDescription = null,

@@ -188,6 +188,7 @@ internal fun LazyListScope.advancedSettingsContent(
             isTablet = isTablet,
         ) {
             SettingsGroup(isTablet = isTablet) {
+                PlatformCacheSettingsRows(isTablet)
                 val scope = rememberCoroutineScope()
                 var cleared by rememberSaveable { mutableStateOf(false) }
                 SettingsNavigationRow(

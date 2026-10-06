@@ -1347,6 +1347,7 @@ compose.desktop {
             modules(
                 "java.instrument",
                 "java.management",
+                "jdk.management",
                 "java.net.http",
                 "jdk.accessibility",
                 "jdk.httpserver",

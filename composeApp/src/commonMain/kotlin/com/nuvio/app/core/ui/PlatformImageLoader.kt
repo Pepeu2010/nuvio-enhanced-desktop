@@ -11,3 +11,4 @@ internal expect fun ImageLoader.Builder.configurePlatformImageLoader(): ImageLoa
  * so it doesn't overwrite the platform-provided loader.
  */
 internal expect val platformProvidesImageLoader: Boolean
+internal expect fun ImageLoader.Builder.configurePlatformBadgeImageLoader(): ImageLoader.Builder
