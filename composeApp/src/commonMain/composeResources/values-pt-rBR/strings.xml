@@ -1391,4 +1391,5 @@
     <string name="enhanced_intensity_cinematic">Cinemática</string>
     <string name="telumia_read_synopsis">Ler sinopse completa</string>
     <string name="telumia_watch_trailer">Trailer</string>
+    <string name="home_spotlight">EM DESTAQUE</string>
 </resources>

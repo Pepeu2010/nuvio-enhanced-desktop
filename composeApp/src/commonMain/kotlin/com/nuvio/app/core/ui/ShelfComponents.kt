@@ -4,10 +4,12 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -254,13 +256,17 @@ fun NuvioPosterCard(
         shape = shape,
     )
     val shouldShowTitleBelow = showTitleBelow && !posterCardStyle.hideLabelsEnabled
+    val cardInteractions = remember { MutableInteractionSource() }
+    val cardHovered by cardInteractions.collectIsHoveredAsState()
+    val cardFocused by cardInteractions.collectIsFocusedAsState()
+    val emphasized = cardHovered || cardFocused
 
     Column(
         modifier = Modifier
-            .desktopPosterHoverScale()
+            .desktopPosterHoverScale(interactionSource = cardInteractions)
             .then(modifier)
             .width(cardWidth),
-        verticalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s6),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Box(
             modifier = Modifier
@@ -268,6 +274,10 @@ fun NuvioPosterCard(
                 .aspectRatio(shape.aspectRatio)
                 .clip(cardShape)
                 .background(tokens.colors.surface)
+                .hoverable(cardInteractions)
+                .border(if (cardFocused) 3.dp else 1.dp,
+                    if (emphasized) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    cardShape)
                 .nuvioCardDepth(
                     shape = cardShape,
                     surface = NuvioCardDepthSurface.Posters,
@@ -278,6 +288,7 @@ fun NuvioPosterCard(
                     zoomImageUrl = imageUrl,
                     zoomCornerRadius = posterCardStyle.cornerRadiusDp.dp,
                     hoverScaleEnabled = false,
+                    interactionSourceOverride = cardInteractions,
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -315,7 +326,7 @@ fun NuvioPosterCard(
             }
 
             if (!bottomLeftLogoUrl.isNullOrBlank() || !bottomLeftText.isNullOrBlank()) {
-                // Gradient scrim for readability — matching NuvioTV Modern Home style
+                // The media artwork remains authoritative; the scrim protects caption contrast.
                 Box(
                     modifier = Modifier
                         .matchParentSize()
@@ -363,9 +374,9 @@ fun NuvioPosterCard(
         if (shouldShowTitleBelow) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.titleSmall,
                 color = tokens.colors.textPrimary,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             if (!detailLine.isNullOrBlank()) {

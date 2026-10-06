@@ -1,11 +1,15 @@
 package com.nuvio.app.features.home.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +28,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -32,6 +38,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -58,6 +70,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import com.nuvio.app.isDesktop
 import com.nuvio.app.core.ui.FullscreenActionButton
 import com.nuvio.app.core.ui.DesktopBackdropVerticalBias
@@ -140,6 +156,9 @@ fun HomeHeroSection(
     }
     val coroutineScope = rememberCoroutineScope()
     var pagerDragActive by remember { mutableStateOf(false) }
+    val heroInteractionSource = remember { MutableInteractionSource() }
+    val heroHovered by heroInteractionSource.collectIsHoveredAsState()
+    var heroFocused by remember { mutableStateOf(false) }
     val autoScrollPage = pagerState.settledPage
 
     LaunchedEffect(pagerState) {
@@ -153,8 +172,8 @@ fun HomeHeroSection(
         }
     }
 
-    ScreenActivityEffect(autoScrollPage, items.size) { active ->
-        if (!active || items.size <= 1) return@ScreenActivityEffect
+    ScreenActivityEffect(autoScrollPage, items.size, heroHovered, heroFocused, pagerDragActive) { active ->
+        if (!active || items.size <= 1 || heroHovered || heroFocused || pagerDragActive) return@ScreenActivityEffect
         delay(HERO_AUTO_SCROLL_INTERVAL_MS)
         while (pagerState.isScrollInProgress) {
             delay(100L)
@@ -167,6 +186,9 @@ fun HomeHeroSection(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
+            .hoverable(heroInteractionSource)
+            .onFocusChanged { heroFocused = it.hasFocus }
+            .focusGroup()
             .homeHeroPagerGesture(
                 pagerState = pagerState,
                 itemCount = items.size,
@@ -616,14 +638,15 @@ private fun DesktopHomeHeroFrame(
         ) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
+                    .align(Alignment.CenterStart)
                     .padding(
                         start = contentHorizontalPadding,
                         end = space.s32,
-                        bottom = layout.contentVerticalPadding,
+                        top = 96.dp,
+                        bottom = 100.dp,
                     )
-                    .fillMaxWidth(layout.contentWidthFraction)
-                    .widthIn(max = layout.contentMaxWidth),
+                    .width((layout.contentContainerMaxWidth * layout.contentWidthFraction - contentHorizontalPadding - space.s32)
+                        .coerceIn(320.dp, layout.contentMaxWidth)),
                 contentAlignment = Alignment.BottomStart,
             ) {
                 HeroDesktopContentLayers(
@@ -652,17 +675,52 @@ private fun DesktopHomeHeroFrame(
                 )
             }
 
-            HeroPageIndicatorRow(
-                itemCount = items.size,
+            DesktopSpotlightPager(
+                items = items,
                 pagerState = pagerState,
                 coroutineScope = coroutineScope,
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
+                    .align(Alignment.BottomStart)
                     .padding(
+                        start = contentHorizontalPadding,
                         end = contentHorizontalPadding,
-                        bottom = space.s40,
-                    ),
+                        bottom = 28.dp,
+                    ).widthIn(max = 680.dp),
             )
+        }
+    }
+}
+
+@Composable
+internal fun DesktopSpotlightPager(
+    items: List<MetaPreview>,
+    pagerState: PagerState,
+    coroutineScope: CoroutineScope,
+    modifier: Modifier = Modifier,
+) {
+    if (items.size <= 1) return
+    val colors = MaterialTheme.colorScheme
+    val activeIndex = pagerState.settledPage % items.size
+    val rowState = androidx.compose.foundation.lazy.rememberLazyListState()
+    LaunchedEffect(activeIndex) { rowState.scrollToItem(activeIndex) }
+    LazyRow(modifier = modifier, state = rowState, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        itemsIndexed(items, key = { index, _ -> index }) { index, item ->
+            val isActive = index == activeIndex
+            Surface(onClick = {
+                coroutineScope.launch {
+                    pagerState.animateScrollToPage(heroPageForItem(pagerState.currentPage, index, items.size))
+                }
+            }, modifier = Modifier.size(44.dp).semantics {
+                selected = isActive
+                contentDescription = item.name
+            }, shape = RoundedCornerShape(12.dp),
+                color = if (isActive) colors.onBackground else colors.surface.copy(alpha = 0.65f),
+                contentColor = if (isActive) colors.background else colors.onBackground,
+                border = BorderStroke(1.dp, colors.onBackground.copy(alpha = if (isActive) 0.75f else 0.15f))) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text((index + 1).toString().padStart(2, '0'), style = MaterialTheme.typography.labelLarge)
+                }
+            }
         }
     }
 }
@@ -881,127 +939,70 @@ private fun HeroContentBlock(
 }
 
 @Composable
-private fun DesktopHeroContentBlock(
+internal fun DesktopHeroContentBlock(
     item: MetaPreview,
     layout: HomeHeroLayout,
     onItemClick: ((MetaPreview) -> Unit)?,
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    var logoLoadError by remember(item.type, item.id, item.logo) {
-        mutableStateOf(false)
+    val colors = MaterialTheme.colorScheme
+    val compact = layout.heroHeight < 620.dp
+    val titleSize = when {
+        layout.contentContainerMaxWidth >= 2800.dp -> 84.sp
+        layout.contentContainerMaxWidth >= 1800.dp -> 64.sp
+        else -> 46.sp
     }
-    val logoUrl = item.logo?.takeIf { it.isNotBlank() }
+    var logoLoadError by remember(item.type, item.id, item.logo) { mutableStateOf(false) }
+    val logoUrl = item.logo?.takeIf(String::isNotBlank)
+    val metadata = remember(item.type, item.releaseInfo, item.genres) {
+        buildList {
+            item.releaseInfo?.takeIf(String::isNotBlank)?.let { add(formatReleaseDateForDisplay(it)) }
+            addAll(item.genres.filter(String::isNotBlank).take(2))
+        }.joinToString("  ·  ")
+    }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                enabled = onItemClick != null,
-            ) {
-                onItemClick?.invoke(item)
-            },
-        horizontalAlignment = Alignment.Start,
-    ) {
-        if (logoUrl != null && !logoLoadError) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(desktopHeroLogoSlotHeight(layout)),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                AsyncImage(
-                    model = logoUrl,
-                    contentDescription = item.name,
-                    modifier = Modifier
-                        .fillMaxWidth(desktopHeroLogoWidthFraction(layout))
-                        .fillMaxHeight(),
-                    alignment = Alignment.CenterStart,
-                    contentScale = ContentScale.Fit,
-                    clipToBounds = false,
-                    onError = { logoLoadError = true },
-                )
-            }
-        } else {
-            Text(
-                text = item.name,
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = NuvioTokens.Type.displayMd,
-                    lineHeight = NuvioTokens.LineHeight.displayMd,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = NuvioTokens.LetterSpacing.none,
-                ),
-                color = colorScheme.onBackground,
-                textAlign = TextAlign.Start,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        val genreText = desktopHeroGenreText(item)
-        if (genreText.isNotBlank()) {
-            Spacer(modifier = Modifier.height(NuvioTokens.Space.s12))
-            Text(
-                text = genreText,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = NuvioTokens.Type.bodyMd,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = NuvioTokens.LetterSpacing.none,
-                ),
-                color = colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        item.description?.takeIf { it.isNotBlank() }?.let { description ->
-            Spacer(modifier = Modifier.height(NuvioTokens.Space.s16))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = NuvioTokens.Type.bodyLg,
-                    lineHeight = NuvioTokens.LineHeight.bodyLg,
-                    letterSpacing = NuvioTokens.LetterSpacing.none,
-                ),
-                color = colorScheme.onSurface,
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        if (onItemClick != null) {
-            Spacer(modifier = Modifier.height(NuvioTokens.Space.s24))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(NuvioTokens.Space.s12),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .height(48.dp)
-                        .clickable { onItemClick(item) },
-                    color = colorScheme.onBackground,
-                    contentColor = colorScheme.background,
-                    shape = RoundedCornerShape(40.dp),
-                ) {
-                    Box(
-                        modifier = Modifier.padding(horizontal = 24.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.home_view_details),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                        )
-                    }
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (compact) 16.dp else 24.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.width(4.dp).height(20.dp).background(colors.primary, RoundedCornerShape(2.dp)))
+            Text(stringResource(Res.string.home_spotlight), style = MaterialTheme.typography.labelLarge,
+                color = colors.onSurfaceVariant, letterSpacing = 2.sp)
+            item.imdbRating?.toFloatOrNull()?.takeIf { it.isFinite() && it in 0f..10f }?.let {
+                Surface(color = colors.primary.copy(alpha = 0.12f), contentColor = colors.onBackground,
+                    shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, colors.primary.copy(alpha = 0.25f))) {
+                    Text("IMDb ${item.imdbRating}", Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        style = MaterialTheme.typography.labelMedium)
                 }
+            }
+        }
+        if (logoUrl != null && !logoLoadError) {
+            AsyncImage(model = logoUrl, contentDescription = item.name,
+                modifier = Modifier.fillMaxWidth(0.85f).height(if (compact) 104.dp else 160.dp),
+                contentScale = ContentScale.Fit, alignment = Alignment.CenterStart,
+                onError = { logoLoadError = true })
+        } else {
+            Text(item.name, style = MaterialTheme.typography.displayLarge.copy(fontSize = titleSize,
+                lineHeight = titleSize * 1.05f, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp),
+                color = colors.onBackground, maxLines = if (compact) 2 else 3, overflow = TextOverflow.Ellipsis)
+        }
+        if (metadata.isNotBlank()) {
+            Text(metadata, style = MaterialTheme.typography.titleSmall, color = colors.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        item.description?.takeIf(String::isNotBlank)?.let {
+            Text(it, modifier = Modifier.widthIn(max = 720.dp), style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp),
+                color = colors.onBackground.copy(alpha = 0.8f), maxLines = if (compact) 2 else 3,
+                overflow = TextOverflow.Ellipsis)
+        }
+        if (onItemClick != null) {
+            Button(onClick = { onItemClick(item) }, modifier = Modifier.height(52.dp),
+                shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.onBackground, contentColor = colors.background)) {
+                Text(stringResource(Res.string.home_view_details), style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.width(20.dp))
+                Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
             }
         }
     }
 }
-
 private fun desktopHeroLogoWidthFraction(layout: HomeHeroLayout): Float =
     when {
         layout.contentMaxWidth >= 640.dp -> 0.74f
@@ -1055,9 +1056,9 @@ internal fun homeHeroLayout(
         return HomeHeroLayout(
             isTablet = true,
             heroHeight = heroHeight,
-            contentMaxWidth = 760.dp,
+            contentMaxWidth = 1160.dp,
             contentContainerMaxWidth = maxWidthDp.dp,
-            contentWidthFraction = 0.58f,
+            contentWidthFraction = if (maxWidthDp < 1000f) 0.78f else 0.56f,
             contentHorizontalPadding = lerp(
                 start = standardHorizontalPadding,
                 stop = DESKTOP_HERO_ULTRAWIDE_HORIZONTAL_PADDING_DP,
@@ -1139,7 +1140,7 @@ private fun desktopHeroHeight(
     maxWidthDp: Float,
     viewportHeightDp: Float?,
 ): Dp {
-    val baselineHeight = (maxWidthDp * 0.56f).dp.coerceIn(460.dp, 640.dp)
+    val baselineHeight = ((viewportHeightDp ?: (maxWidthDp * 0.56f)) * 0.72f).dp.coerceIn(560.dp, 1280.dp)
     val viewportHeight = viewportHeightDp ?: return baselineHeight
     val ultrawideProgress = ultrawideViewportProgress(
         widthDp = maxWidthDp,

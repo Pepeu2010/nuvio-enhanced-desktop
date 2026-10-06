@@ -46,14 +46,14 @@ class HomeHeroSectionTest {
     }
 
     @Test
-    fun `desktop hero keeps the existing full bleed layout at sixteen by nine`() {
+    fun `desktop spotlight scales with viewport while leaving room for catalog rails`() {
         val layout = homeHeroLayout(
             maxWidthDp = 2560f,
             viewportHeightDp = 1440f,
             preferDesktopLayout = true,
         )
 
-        assertEquals(660f, layout.heroHeight.value, 0.001f)
+        assertEquals(1036.8f, layout.heroHeight.value, 0.001f)
         assertEquals(2560f, layout.contentContainerMaxWidth.value, 0.001f)
         assertEquals(32f, layout.contentHorizontalPadding.value, 0.001f)
         assertEquals(40f, layout.contentVerticalPadding.value, 0.001f)
