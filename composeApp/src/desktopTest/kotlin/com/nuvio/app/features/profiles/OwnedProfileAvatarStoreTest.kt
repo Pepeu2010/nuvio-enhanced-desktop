@@ -67,6 +67,11 @@ class OwnedProfileAvatarStoreTest {
         Files.writeString(manifest, "{\"schemaVersion\":999,\"kind\":\"photo\",\"assetId\":\"../../outside\"}")
         assertNull(store.load(scope))
         assertTrue(Files.readString(manifest).contains("999"))
+        val future = Files.readAllBytes(manifest)
+        assertFailsWith<IllegalArgumentException> { store.clear(scope) }
+        assertFailsWith<IllegalArgumentException> { store.savePhoto(scope, variants(Color.BLUE)) }
+        assertFailsWith<IllegalArgumentException> { store.saveBundled(scope, "openmoji-1f98a", setOf("openmoji-1f98a")) }
+        assertContentEquals(future, Files.readAllBytes(manifest))
     }
 
     @Test fun failedManifestReplacementRollsBackNewImagesAndKeepsThePreviousReference() {

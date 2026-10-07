@@ -54,6 +54,29 @@ data class ProfileState(
     val rememberLastProfileEnabled: Boolean = false,
 )
 
+/** A successful transport alone does not confirm that an edit reached this account. */
+internal fun confirmsProfileMutation(
+    expectedOwner: String,
+    currentOwner: String?,
+    requested: List<ProfilePushPayload>,
+    observed: List<NuvioProfile>,
+): Boolean {
+    if (expectedOwner.isBlank() || expectedOwner != currentOwner || requested.isEmpty()) return false
+    if (requested.map { it.profileIndex }.distinct().size != requested.size) return false
+    if (observed.map { it.profileIndex }.distinct().size != observed.size) return false
+    // Older compatible RPC responses may omit user_id; the request still belongs to
+    // the unchanged authenticated owner. An explicit conflicting owner is refused.
+    if (requested.size != observed.size || observed.any { it.userId.isNotBlank() && it.userId != expectedOwner }) return false
+    val actual = observed.associateBy { it.profileIndex }
+    return requested.all { desired ->
+        val profile = actual[desired.profileIndex] ?: return@all false
+        profile.name == desired.name && profile.avatarColorHex == desired.avatarColorHex &&
+            profile.avatarId == desired.avatarId && profile.avatarUrl == desired.avatarUrl &&
+            profile.profileBackgroundId == desired.profileBackgroundId && profile.profileBackgroundUrl == desired.profileBackgroundUrl &&
+            profile.usesPrimaryAddons == desired.usesPrimaryAddons && profile.usesPrimaryPlugins == desired.usesPrimaryPlugins
+    }
+}
+
 @Serializable
 data class AvatarCatalogItem(
     val id: String,

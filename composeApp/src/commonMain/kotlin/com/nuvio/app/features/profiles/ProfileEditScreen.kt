@@ -54,6 +54,7 @@ import com.nuvio.app.features.membership.CosmeticEntitlement
 import com.nuvio.app.features.membership.MemberAccessRepository
 import com.nuvio.app.features.membership.ProfileBackgroundRepository
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
@@ -81,6 +82,7 @@ fun ProfileEditScreen(
     var selectedBackgroundUrl by rememberSaveable { mutableStateOf(currentProfile?.profileBackgroundUrl) }
     var usesPrimaryAddons by rememberSaveable { mutableStateOf(currentProfile?.usesPrimaryAddons ?: false) }
     var isSaving by remember { mutableStateOf(false) }
+    var mutationFailed by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showPinSetup by remember { mutableStateOf(false) }
     var showPinClear by remember { mutableStateOf(false) }
@@ -279,6 +281,7 @@ fun ProfileEditScreen(
 
         item {
             Spacer(modifier = Modifier.height(8.dp))
+            if (mutationFailed) Text(stringResource(Res.string.profile_mutation_failed), color = MaterialTheme.colorScheme.error)
             NuvioPrimaryButton(
                 text = if (isSaving) {
                     stringResource(Res.string.profile_saving)
@@ -290,30 +293,38 @@ fun ProfileEditScreen(
                 enabled = name.isNotBlank() && !avatarUrlIsInvalid && !isSaving,
                 onClick = {
                     isSaving = true
+                    mutationFailed = false
                     scope.launch {
-                        val avatarColorHex = visibleAvatarItem?.bgColor ?: fallbackColorHex
-                        if (isNew) {
-                            ProfileRepository.createProfile(
-                                name = name,
-                                avatarColorHex = avatarColorHex,
-                                avatarId = if (customAvatarUrl == null) selectedAvatarId else null,
-                                avatarUrl = customAvatarUrl,
-                                usesPrimaryAddons = usesPrimaryAddons,
-                            )
-                        } else {
-                            ProfileRepository.updateProfile(
-                                profileIndex = currentProfile!!.profileIndex,
-                                name = name,
-                                avatarColorHex = avatarColorHex,
-                                avatarId = if (customAvatarUrl == null) selectedAvatarId else null,
-                                avatarUrl = customAvatarUrl,
-                                profileBackgroundId = selectedBackgroundId,
-                                profileBackgroundUrl = selectedBackgroundUrl,
-                                usesPrimaryAddons = usesPrimaryAddons,
-                            )
+                        try {
+                            val avatarColorHex = visibleAvatarItem?.bgColor ?: fallbackColorHex
+                            val confirmed = if (isNew) {
+                                ProfileRepository.createProfile(
+                                    name = name,
+                                    avatarColorHex = avatarColorHex,
+                                    avatarId = if (customAvatarUrl == null) selectedAvatarId else null,
+                                    avatarUrl = customAvatarUrl,
+                                    usesPrimaryAddons = usesPrimaryAddons,
+                                )
+                            } else {
+                                ProfileRepository.updateProfile(
+                                    profileIndex = currentProfile!!.profileIndex,
+                                    name = name,
+                                    avatarColorHex = avatarColorHex,
+                                    avatarId = if (customAvatarUrl == null) selectedAvatarId else null,
+                                    avatarUrl = customAvatarUrl,
+                                    profileBackgroundId = selectedBackgroundId,
+                                    profileBackgroundUrl = selectedBackgroundUrl,
+                                    usesPrimaryAddons = usesPrimaryAddons,
+                                )
+                            }
+                            if (confirmed) onSaved() else mutationFailed = true
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (_: Exception) {
+                            mutationFailed = true
+                        } finally {
+                            isSaving = false
                         }
-                        isSaving = false
-                        onSaved()
                     }
                 },
             )
@@ -323,6 +334,7 @@ fun ProfileEditScreen(
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
+                    enabled = !isSaving,
                     onClick = { showDeleteConfirm = true },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -355,14 +367,25 @@ fun ProfileEditScreen(
         dismissText = stringResource(Res.string.action_cancel),
         onConfirm = {
             showDeleteConfirm = false
+            isSaving = true
+            mutationFailed = false
             scope.launch {
-                currentProfile?.let { deleted ->
-                    ProfileRepository.deleteProfile(deleted.profileIndex)
-                    if (ProfileRepository.state.value.profiles.none { it.profileIndex == deleted.profileIndex }) {
-                        ProfileStudioAvatars.clearDeletedProfile(deleted)
+                try {
+                    var confirmed = false
+                    currentProfile?.let { deleted ->
+                        confirmed = ProfileRepository.deleteProfile(deleted.profileIndex)
+                        if (confirmed) {
+                            ProfileStudioAvatars.clearDeletedProfile(deleted)
+                        }
                     }
+                    if (confirmed) onBack() else mutationFailed = true
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    mutationFailed = true
+                } finally {
+                    isSaving = false
                 }
-                onBack()
             }
         },
         onDismiss = { showDeleteConfirm = false },

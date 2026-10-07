@@ -48,6 +48,7 @@ internal class OwnedProfileAvatarStore(directory: Path) {
         require(variants.keys == AvatarRasterPipeline.variantSizes.toSet())
         require(variants.values.all { it.size in 1..2 * 1024 * 1024 })
         val directory = requireNotNull(directory(scope, create = true))
+        requireWritableManifest(directory)
         val previous = load(scope)
         val id = digest(variants.getValue(512))
         try {
@@ -66,6 +67,7 @@ internal class OwnedProfileAvatarStore(directory: Path) {
     fun saveBundled(scope: ProfileAvatarScope, id: String, availableIds: Set<String>): LocalProfileAvatar.Bundled = synchronized(lock) {
         require(bundlePattern.matches(id) && id in availableIds)
         val directory = requireNotNull(directory(scope, create = true))
+        requireWritableManifest(directory)
         val previous = load(scope)
         writeManifest(directory, "bundle", id)
         removePreviousPhoto(directory, previous, null)
@@ -74,6 +76,7 @@ internal class OwnedProfileAvatarStore(directory: Path) {
 
     fun clear(scope: ProfileAvatarScope) = synchronized(lock) {
         val directory = directory(scope, create = false) ?: return@synchronized
+        requireWritableManifest(directory)
         val previous = load(scope)
         Files.deleteIfExists(directory.resolve("avatar.json"))
         removePreviousPhoto(directory, previous, null)
@@ -92,6 +95,14 @@ internal class OwnedProfileAvatarStore(directory: Path) {
         if (create) Files.createDirectories(profile)
         if (!Files.isDirectory(profile, NOFOLLOW_LINKS) || !profile.toRealPath().startsWith(root.toRealPath())) return null
         return profile
+    }
+
+    private fun requireWritableManifest(directory: Path) {
+        val file = directory.resolve("avatar.json")
+        if (!Files.exists(file, NOFOLLOW_LINKS)) return
+        require(Files.isRegularFile(file, NOFOLLOW_LINKS) && Files.size(file) in 1..16384) { "Avatar manifest cannot be modified" }
+        val payload = Json.parseToJsonElement(Files.readString(file)).jsonObject
+        require(payload["schemaVersion"]?.jsonPrimitive?.intOrNull == 1) { "Avatar schema requires a newer application" }
     }
 
     private fun writeManifest(directory: Path, kind: String, id: String) {

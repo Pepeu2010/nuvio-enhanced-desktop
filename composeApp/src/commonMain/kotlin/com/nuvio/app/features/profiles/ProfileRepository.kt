@@ -38,6 +38,7 @@ import com.nuvio.app.features.watchprogress.WatchProgressRepository
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -124,16 +125,18 @@ object ProfileRepository {
         _state.value = ProfileState()
     }
 
-    suspend fun pullProfiles() {
+    suspend fun pullProfiles(): Boolean {
+        val owner = (AuthRepository.state.value as? AuthState.Authenticated)?.userId ?: return false
         if (AuthRepository.state.value.isAnonymous) {
             if (!_state.value.isLoaded) {
                 _state.value = _state.value.copy(isLoaded = true)
             }
-            return
+            return true
         }
         try {
             val result = SupabaseProvider.client.postgrest.rpc("sync_pull_profiles")
             val profiles = result.decodeList<NuvioProfile>()
+            if ((AuthRepository.state.value as? AuthState.Authenticated)?.userId != owner) return false
             _state.value = _state.value.copy(
                 profiles = profiles.sortedBy { it.profileIndex },
                 isLoaded = true,
@@ -144,12 +147,15 @@ object ProfileRepository {
                 activeProfileIndex = _state.value.activeProfile!!.profileIndex
             }
             persist()
+            return true
         } catch (e: Throwable) {
-            if (AuthRepository.signOutIfSessionInvalid(e, "Profile pull")) return
-            log.e(e) { "Failed to pull profiles" }
+            if (e is CancellationException) throw e
+            if (AuthRepository.signOutIfSessionInvalid(e, "Profile pull")) return false
+            log.e { "Failed to pull profiles" }
             if (!_state.value.isLoaded) {
                 _state.value = _state.value.copy(isLoaded = true)
             }
+            return false
         }
     }
 
@@ -204,10 +210,11 @@ object ProfileRepository {
         ProfileSettingsSync.onProfileChanged()
     }
 
-    suspend fun pushProfiles(profiles: List<ProfilePushPayload>) {
+    suspend fun pushProfiles(profiles: List<ProfilePushPayload>): Boolean {
+        val owner = (AuthRepository.state.value as? AuthState.Authenticated)?.userId ?: return false
         if (AuthRepository.state.value.isAnonymous) {
             applyPayloadsLocally(profiles)
-            return
+            return confirmsProfileMutation(owner, owner, profiles, _state.value.profiles)
         }
         try {
             val params = buildJsonObject {
@@ -216,10 +223,14 @@ object ProfileRepository {
                 putSyncOriginClientId()
             }
             SupabaseProvider.client.postgrest.rpc("sync_push_profiles", params)
-            pullProfiles()
+            if ((AuthRepository.state.value as? AuthState.Authenticated)?.userId != owner) return false
+            if (!pullProfiles()) return false
+            return confirmsProfileMutation(owner, (AuthRepository.state.value as? AuthState.Authenticated)?.userId, profiles, _state.value.profiles)
         } catch (e: Throwable) {
-            if (AuthRepository.signOutIfSessionInvalid(e, "Profile push")) return
-            log.e(e) { "Failed to push profiles" }
+            if (e is CancellationException) throw e
+            if (AuthRepository.signOutIfSessionInvalid(e, "Profile push")) return false
+            log.e { "Failed to push profiles" }
+            return false
         }
     }
 
@@ -229,9 +240,9 @@ object ProfileRepository {
         avatarId: String? = null,
         avatarUrl: String? = null,
         usesPrimaryAddons: Boolean = false,
-    ) {
+    ): Boolean {
         val existing = _state.value.profiles
-        val nextIndex = ((1..MAX_PROFILES).toSet() - existing.map { it.profileIndex }.toSet()).minOrNull() ?: return
+        val nextIndex = ((1..MAX_PROFILES).toSet() - existing.map { it.profileIndex }.toSet()).minOrNull() ?: return false
 
         val allPayloads = existing.map { profile ->
             ProfilePushPayload(
@@ -254,7 +265,7 @@ object ProfileRepository {
             avatarUrl = avatarUrl,
         )
 
-        pushProfiles(allPayloads)
+        return pushProfiles(allPayloads)
     }
 
     suspend fun updateProfile(
@@ -266,7 +277,8 @@ object ProfileRepository {
         profileBackgroundId: String? = null,
         profileBackgroundUrl: String? = null,
         usesPrimaryAddons: Boolean = false,
-    ) {
+    ): Boolean {
+        if (_state.value.profiles.none { it.profileIndex == profileIndex }) return false
         val allPayloads = _state.value.profiles.map { profile ->
             if (profile.profileIndex == profileIndex) {
                 ProfilePushPayload(
@@ -274,6 +286,7 @@ object ProfileRepository {
                     name = name,
                     avatarColorHex = avatarColorHex,
                     usesPrimaryAddons = usesPrimaryAddons,
+                    usesPrimaryPlugins = profile.usesPrimaryPlugins,
                     avatarId = avatarId,
                     avatarUrl = avatarUrl,
                     profileBackgroundId = profileBackgroundId,
@@ -294,10 +307,12 @@ object ProfileRepository {
             }
         }
 
-        pushProfiles(allPayloads)
+        return pushProfiles(allPayloads)
     }
 
-    suspend fun deleteProfile(profileIndex: Int) {
+    suspend fun deleteProfile(profileIndex: Int): Boolean {
+        val owner = (AuthRepository.state.value as? AuthState.Authenticated)?.userId ?: return false
+        if (profileIndex !in 2..MAX_PROFILES || _state.value.profiles.none { it.profileIndex == profileIndex }) return false
         if (AuthRepository.state.value.isAnonymous) {
             val remaining = _state.value.profiles.filter { it.profileIndex != profileIndex }
             ProfilePinCacheStorage.removePayload(profileIndex)
@@ -309,7 +324,7 @@ object ProfileRepository {
                 activeProfileIndex = _state.value.activeProfile!!.profileIndex
             }
             persist()
-            return
+            return true
         }
         try {
             val params = buildJsonObject {
@@ -317,10 +332,14 @@ object ProfileRepository {
                 putSyncOriginClientId()
             }
             SupabaseProvider.client.postgrest.rpc("sync_delete_profile_data", params)
-            pullProfiles()
+            if ((AuthRepository.state.value as? AuthState.Authenticated)?.userId != owner) return false
+            return pullProfiles() && (AuthRepository.state.value as? AuthState.Authenticated)?.userId == owner &&
+                _state.value.profiles.none { it.profileIndex == profileIndex }
         } catch (e: Throwable) {
-            if (AuthRepository.signOutIfSessionInvalid(e, "Profile delete")) return
-            log.e(e) { "Failed to delete profile $profileIndex" }
+            if (e is CancellationException) throw e
+            if (AuthRepository.signOutIfSessionInvalid(e, "Profile delete")) return false
+            log.e { "Failed to delete profile $profileIndex" }
+            return false
         }
     }
 
@@ -414,11 +433,13 @@ object ProfileRepository {
         }
     }
 
+    @OptIn(kotlin.uuid.ExperimentalUuidApi::class)
     private fun applyPayloadsLocally(payloads: List<ProfilePushPayload>) {
         val authState = AuthRepository.state.value as? AuthState.Authenticated ?: return
+        val previous = _state.value.profiles.associateBy { it.profileIndex }
         val profiles = payloads.map { p ->
             NuvioProfile(
-                id = "",
+                id = previous[p.profileIndex]?.id ?: "local-${kotlin.uuid.Uuid.random()}",
                 userId = authState.userId,
                 profileIndex = p.profileIndex,
                 name = p.name,

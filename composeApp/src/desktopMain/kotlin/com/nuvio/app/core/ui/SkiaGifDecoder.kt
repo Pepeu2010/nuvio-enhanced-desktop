@@ -21,6 +21,40 @@ import okio.use
 
 private const val MAX_FRAME_DIMENSION = 512
 
+internal object DesktopGifLimits {
+    const val MAX_BYTES = 8 * 1024 * 1024
+    const val MAX_FRAMES = 512
+    fun safeDimensions(width: Int, height: Int) = width in 1..8192 && height in 1..8192 &&
+        width.toLong() * height <= 4L * 1024 * 1024
+    fun validateHeader(bytes: ByteArray) {
+        require(bytes.size in 10..MAX_BYTES)
+        require(bytes.copyOfRange(0,6).toString(Charsets.US_ASCII) in setOf("GIF87a","GIF89a"))
+        fun word(offset: Int) = (bytes[offset].toInt() and 255) or ((bytes[offset+1].toInt() and 255) shl 8)
+        require(safeDimensions(word(6),word(8))) { "GIF dimensions exceed the working memory limit" }
+    }
+}
+
+/** Stops after one overflow byte even for unknown-length, chunked responses. */
+internal fun readGifBytesBounded(input: java.io.InputStream, limit: Int = DesktopGifLimits.MAX_BYTES): ByteArray {
+    require(limit in 1..DesktopGifLimits.MAX_BYTES)
+    val output = java.io.ByteArrayOutputStream(minOf(limit,4096))
+    val buffer = ByteArray(16384)
+    while(true) {
+        val count=input.read(buffer,0,minOf(buffer.size,limit-output.size()+1))
+        if(count<0)break
+        if(count==0) {
+            val next=input.read()
+            if(next<0)break
+            require(output.size()<limit) { "GIF response exceeds the byte limit" }
+            output.write(next)
+        } else {
+            require(output.size()+count<=limit) { "GIF response exceeds the byte limit" }
+            output.write(buffer,0,count)
+        }
+    }
+    return output.toByteArray()
+}
+
 class SkiaGifDecoder(
     private val source: ImageSource,
 ) : Decoder {
@@ -28,18 +62,19 @@ class SkiaGifDecoder(
     override suspend fun decode(): DecodeResult? {
         val bytes = withContext(Dispatchers.IO) {
             source.source().use { okioSource ->
-                okioSource.readByteArray()
+                readGifBytesBounded(okioSource.inputStream())
             }
         }
-        if (bytes.isEmpty()) return null
+        DesktopGifLimits.validateHeader(bytes)
 
-        val codec = Codec.makeFromData(Data.makeFromBytes(bytes))
+        val codec = Data.makeFromBytes(bytes).use { Codec.makeFromData(it) }
+        try {
         val count = codec.frameCount
-        if (count <= 0) return null
+        if (count !in 1..DesktopGifLimits.MAX_FRAMES) return null
 
         val w = codec.width
         val h = codec.height
-        if (w <= 0 || h <= 0) return null
+        if (!DesktopGifLimits.safeDimensions(w,h)) return null
 
         val scale = if (w > MAX_FRAME_DIMENSION || h > MAX_FRAME_DIMENSION) {
             minOf(MAX_FRAME_DIMENSION.toFloat() / w, MAX_FRAME_DIMENSION.toFloat() / h)
@@ -61,14 +96,14 @@ class SkiaGifDecoder(
                 }
                 val skiaImg = Image.makeFromBitmap(fullBitmap)
                 try {
-                    Canvas(bitmap).drawImageRect(
+                    Canvas(bitmap).use { canvas -> canvas.drawImageRect(
                         skiaImg,
                         Rect.makeWH(w.toFloat(), h.toFloat()),
                         Rect.makeWH(tw.toFloat(), th.toFloat()),
                         SamplingMode.LINEAR,
                         null,
                         true,
-                    )
+                    ) }
                 } finally {
                     skiaImg.close()
                 }
@@ -86,6 +121,7 @@ class SkiaGifDecoder(
             image = bitmap.asImage(),
             isSampled = needsScale,
         )
+        } finally { codec.close() }
     }
 
     class Factory : Decoder.Factory {

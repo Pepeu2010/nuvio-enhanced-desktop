@@ -21,10 +21,15 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import com.nuvio.app.core.ui.NuvioAsyncImage as AsyncImage
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
-import io.ktor.client.request.get
+import io.ktor.client.request.prepareGet
 import io.ktor.client.request.header
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.http.contentLength
+import io.ktor.utils.io.jvm.javaio.toInputStream
+import com.nuvio.app.core.ui.DesktopGifLimits
+import com.nuvio.app.core.ui.readGifBytesBounded
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -62,7 +67,16 @@ private fun writeGifDiskCache(url: String, bytes: ByteArray) {
     com.nuvio.app.core.storage.DesktopMediaCache.gifCache.put(url, bytes)
 }
 
-private class GifCodecHolder(
+internal suspend fun downloadDesktopGifBytes(url: String, client: HttpClient = desktopGifHttpClient,
+    limit: Int = DesktopGifLimits.MAX_BYTES): ByteArray = client.prepareGet(url) {
+    header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+}.execute { response ->
+    require(response.status.value in 200..299) { "GIF response failed" }
+    response.contentLength()?.let { require(it in 0..limit.toLong()) { "GIF response exceeds the byte limit" } }
+    response.bodyAsChannel().toInputStream().use { readGifBytesBounded(it,limit) }
+}
+
+internal class GifCodecHolder(
     val codec: Codec,
     val frameDelaysMs: List<Long>,
     val width: Int,
@@ -70,15 +84,37 @@ private class GifCodecHolder(
     val targetWidth: Int,
     val targetHeight: Int,
     val needsScale: Boolean,
-)
+) {
+    private var users = 0
+    private var retired = false
+    private var closed = false
+    @Synchronized fun acquire(): Boolean {
+        if (closed) return false
+        users++
+        return true
+    }
+    @Synchronized fun release() {
+        check(users > 0)
+        users--
+        closeIfUnused()
+    }
+    @Synchronized fun retire() {
+        retired = true
+        closeIfUnused()
+    }
+    private fun closeIfUnused() {
+        if (retired && users == 0 && !closed) { closed = true; codec.close() }
+    }
+}
 
-// LRU Cache holding raw GIF Codecs (max 15 items in memory, tiny compressed bytes ~10-20MB total)
+// At most 15 cached codecs; each encoded source is capped at 8 MiB. Active cards
+// keep a lease so eviction cannot free a codec while a frame is being read.
 private val gifCodecCache = object : LinkedHashMap<String, GifCodecHolder?>(16, 0.75f, true) {
     override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, GifCodecHolder?>?): Boolean {
         val shouldRemove = size > 15
         if (shouldRemove) {
             try {
-                eldest?.value?.codec?.close()
+                eldest?.value?.retire()
             } catch (_: Exception) {}
         }
         return shouldRemove
@@ -121,25 +157,19 @@ private suspend fun loadDesktopGifCodec(url: String): GifCodecHolder? {
 }
 
 private suspend fun decodeGifCodec(url: String): GifCodecHolder? {
+    var owned: Codec? = null
     return try {
         // Disk cache first - avoids a network round-trip on every fresh app launch.
-        val bytes = readGifDiskCache(url) ?: run {
-            val downloaded = desktopGifHttpClient.get(url) {
-                header(
-                    "User-Agent",
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                )
-            }.body<ByteArray>()
-            writeGifDiskCache(url, downloaded)
-            downloaded
-        }
+        val cached = readGifDiskCache(url)
+        val bytes = cached ?: downloadDesktopGifBytes(url)
 
-        val codec = Codec.makeFromData(Data.makeFromBytes(bytes))
+        DesktopGifLimits.validateHeader(bytes)
+        val codec = Data.makeFromBytes(bytes).use { Codec.makeFromData(it) }.also { owned = it }
         val count = codec.frameCount
-        if (count <= 1) return null
+        if (count !in 2..DesktopGifLimits.MAX_FRAMES) return null
         val w = codec.width
         val h = codec.height
-        if (w <= 0 || h <= 0) return null
+        if (!DesktopGifLimits.safeDimensions(w,h)) return null
 
         val scale = if (w > MAX_FRAME_DIMENSION || h > MAX_FRAME_DIMENSION) {
             minOf(MAX_FRAME_DIMENSION.toFloat() / w, MAX_FRAME_DIMENSION.toFloat() / h)
@@ -153,9 +183,14 @@ private suspend fun decodeGifCodec(url: String): GifCodecHolder? {
             val duration = codec.getFrameInfo(i).duration
             if (duration > 0) duration.toLong() else 100L
         }
-        GifCodecHolder(codec, delays, w, h, tw, th, needsScale)
+        if (cached == null) writeGifDiskCache(url, bytes)
+        GifCodecHolder(codec, delays, w, h, tw, th, needsScale).also { owned = null }
+    } catch (error: CancellationException) {
+        throw error
     } catch (_: Exception) {
         null
+    } finally {
+        owned?.close()
     }
 }
 
@@ -199,6 +234,11 @@ internal actual fun CollectionCardRemoteImage(
 
         val currentHolder = codecHolder
         if (currentHolder != null && currentHolder.frameDelaysMs.isNotEmpty()) {
+            var animationLease by remember(currentHolder) { mutableStateOf(false) }
+            DisposableEffect(currentHolder) {
+                animationLease = currentHolder.acquire()
+                onDispose { if (animationLease) currentHolder.release() }
+            }
             var frameIndex by remember(imageUrl) { mutableStateOf(0) }
 
             // Allocate ONLY ONE single reusable Skia Bitmap for this card while hovered
@@ -237,21 +277,22 @@ internal actual fun CollectionCardRemoteImage(
             }
 
             if (singleBitmap != null) {
-                LaunchedEffect(imageUrl, currentHolder, singleBitmap, fullBitmap) {
+                LaunchedEffect(imageUrl, currentHolder, singleBitmap, fullBitmap, animationLease) {
+                    if (!animationLease) return@LaunchedEffect
                     while (true) {
                         try {
                             if (currentHolder.needsScale && fullBitmap != null) {
                                 currentHolder.codec.readPixels(fullBitmap, frameIndex)
                                 val skiaImg = Image.makeFromBitmap(fullBitmap)
                                 try {
-                                    Canvas(singleBitmap).drawImageRect(
+                                    Canvas(singleBitmap).use { canvas -> canvas.drawImageRect(
                                         skiaImg,
                                         Rect.makeWH(currentHolder.width.toFloat(), currentHolder.height.toFloat()),
                                         Rect.makeWH(currentHolder.targetWidth.toFloat(), currentHolder.targetHeight.toFloat()),
                                         SamplingMode.LINEAR,
                                         null,
                                         true,
-                                    )
+                                    ) }
                                 } finally {
                                     skiaImg.close()
                                 }

@@ -2532,4 +2532,5 @@
     <string name="profile_studio_category_fantasy">Fantasy</string>
     <string name="profile_studio_category_space">Space</string>
     <string name="profile_studio_library_error">Could not load the bundled avatars. You can still choose a local image.</string>
+    <string name="profile_mutation_failed">Could not confirm this profile change. Your editor remains open; check your connection and try again.</string>
 </resources>

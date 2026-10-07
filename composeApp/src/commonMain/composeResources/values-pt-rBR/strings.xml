@@ -1430,4 +1430,5 @@
     <string name="profile_studio_category_fantasy">Fantasia</string>
     <string name="profile_studio_category_space">Espaço</string>
     <string name="profile_studio_library_error">Não foi possível carregar os avatares incluídos. Você ainda pode escolher uma imagem local.</string>
+    <string name="profile_mutation_failed">Não foi possível confirmar a alteração do perfil. O editor continua aberto; verifique a conexão e tente novamente.</string>
 </resources>

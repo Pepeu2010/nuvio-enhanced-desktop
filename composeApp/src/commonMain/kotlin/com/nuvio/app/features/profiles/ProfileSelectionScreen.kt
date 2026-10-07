@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.app.isDesktop
 import com.nuvio.app.core.ui.NuvioAsyncImage as AsyncImage
+import com.nuvio.app.core.ui.LocalUiMotion
 import com.nuvio.app.core.ui.NuvioBackButton
 import com.nuvio.app.core.ui.NuvioToastHost
 import com.nuvio.app.features.membership.CosmeticEntitlement
@@ -90,6 +91,7 @@ fun ProfileSelectionScreen(
     var isEditMode by remember { mutableStateOf(false) }
     var hoveredProfileIndex by remember { mutableStateOf<Int?>(null) }
 
+    val motion = LocalUiMotion.current
     val titleAlpha = remember { Animatable(0f) }
     val titleOffset = remember { Animatable(20f) }
     val manageAlpha = remember { Animatable(0f) }
@@ -111,11 +113,11 @@ fun ProfileSelectionScreen(
         AvatarRepository.refreshAvatars()
     }
 
-    LaunchedEffect(Unit) {
-        launch { titleAlpha.animateTo(1f, tween(600, easing = FastOutSlowInEasing)) }
-        launch { titleOffset.animateTo(0f, tween(600, easing = FastOutSlowInEasing)) }
-        delay(300)
-        manageAlpha.animateTo(1f, tween(500))
+    LaunchedEffect(motion) {
+        launch { titleAlpha.animateTo(1f, tween(motion.durationMillis(280), easing = FastOutSlowInEasing)) }
+        launch { titleOffset.animateTo(0f, tween(motion.durationMillis(280), easing = FastOutSlowInEasing)) }
+        delay(motion.durationMillis(90).toLong())
+        manageAlpha.animateTo(1f, tween(motion.durationMillis(180)))
     }
 
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -158,8 +160,8 @@ fun ProfileSelectionScreen(
 
         AnimatedVisibility(
             visible = contentVisible,
-            enter = fadeIn(tween(180)),
-            exit = fadeOut(tween(180)),
+            enter = fadeIn(tween(motion.durationMillis(180))),
+            exit = fadeOut(tween(motion.durationMillis(180))),
             modifier = Modifier.fillMaxSize(),
         ) {
             Column(
@@ -183,7 +185,7 @@ fun ProfileSelectionScreen(
                     height = if (isTabletLayout) 42.dp else 34.dp,
                     modifier = Modifier.graphicsLayer {
                         alpha = titleAlpha.value
-                        translationY = titleOffset.value
+                        translationY = if (motion.allowsSpatialEffects) titleOffset.value else 0f
                     },
                 )
 
@@ -199,7 +201,7 @@ fun ProfileSelectionScreen(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.graphicsLayer {
                         alpha = titleAlpha.value
-                        translationY = titleOffset.value
+                        translationY = if (motion.allowsSpatialEffects) titleOffset.value else 0f
                     },
                 )
 
@@ -369,22 +371,23 @@ private fun ProfileAvatarCard(
     }
     val avatarImageUrl = rememberProfileAvatarImageUrl(profile, avatarItem)
 
+    val motion = LocalUiMotion.current
     val animAlpha = remember { Animatable(0f) }
     val animScale = remember { Animatable(0.85f) }
     val animOffset = remember { Animatable(30f) }
 
-    LaunchedEffect(Unit) {
-        delay(animDelay.toLong() + 150)
-        launch { animAlpha.animateTo(1f, tween(450, easing = FastOutSlowInEasing)) }
-        launch { animScale.animateTo(1f, tween(500, easing = FastOutSlowInEasing)) }
-        launch { animOffset.animateTo(0f, tween(500, easing = FastOutSlowInEasing)) }
+    LaunchedEffect(motion) {
+        delay(motion.durationMillis(animDelay + 60).toLong())
+        launch { animAlpha.animateTo(1f, tween(motion.durationMillis(220), easing = FastOutSlowInEasing)) }
+        launch { animScale.animateTo(1f, tween(motion.durationMillis(260), easing = FastOutSlowInEasing)) }
+        launch { animOffset.animateTo(0f, tween(motion.durationMillis(260), easing = FastOutSlowInEasing)) }
     }
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val isHovered by interactionSource.collectIsHoveredAsState()
     val currentOnHoverChange = rememberUpdatedState(onHoverChange)
-    val pressScale = if (isPressed) 0.95f else 1f
+    val pressScale = motion.scale(if (isPressed) 0.95f else 1f)
 
     LaunchedEffect(isHovered, profile.profileIndex) {
         if (isDesktop) {
@@ -406,9 +409,9 @@ private fun ProfileAvatarCard(
             .width(150.dp)
             .graphicsLayer {
                 alpha = animAlpha.value
-                scaleX = animScale.value * pressScale
-                scaleY = animScale.value * pressScale
-                translationY = animOffset.value
+                scaleX = motion.scale(animScale.value) * pressScale
+                scaleY = motion.scale(animScale.value) * pressScale
+                translationY = if (motion.allowsSpatialEffects) animOffset.value else 0f
             }
             .clip(RoundedCornerShape(20.dp))
             .then(
@@ -542,20 +545,21 @@ private fun AddProfileCard(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
+    val motion = LocalUiMotion.current
     val animAlpha = remember { Animatable(0f) }
     val animScale = remember { Animatable(0.85f) }
     val animOffset = remember { Animatable(30f) }
 
-    LaunchedEffect(Unit) {
-        delay(animDelay.toLong() + 150)
-        launch { animAlpha.animateTo(1f, tween(450, easing = FastOutSlowInEasing)) }
-        launch { animScale.animateTo(1f, tween(500, easing = FastOutSlowInEasing)) }
-        launch { animOffset.animateTo(0f, tween(500, easing = FastOutSlowInEasing)) }
+    LaunchedEffect(motion) {
+        delay(motion.durationMillis(animDelay + 60).toLong())
+        launch { animAlpha.animateTo(1f, tween(motion.durationMillis(220), easing = FastOutSlowInEasing)) }
+        launch { animScale.animateTo(1f, tween(motion.durationMillis(260), easing = FastOutSlowInEasing)) }
+        launch { animOffset.animateTo(0f, tween(motion.durationMillis(260), easing = FastOutSlowInEasing)) }
     }
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val pressScale = if (isPressed) 0.95f else 1f
+    val pressScale = motion.scale(if (isPressed) 0.95f else 1f)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -563,9 +567,9 @@ private fun AddProfileCard(
             .width(150.dp)
             .graphicsLayer {
                 alpha = animAlpha.value
-                scaleX = animScale.value * pressScale
-                scaleY = animScale.value * pressScale
-                translationY = animOffset.value
+                scaleX = motion.scale(animScale.value) * pressScale
+                scaleY = motion.scale(animScale.value) * pressScale
+                translationY = if (motion.allowsSpatialEffects) animOffset.value else 0f
             }
             .clip(RoundedCornerShape(20.dp))
             .clickable(
