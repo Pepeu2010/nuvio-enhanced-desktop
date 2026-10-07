@@ -280,56 +280,12 @@ internal object NativePlayerBridge {
         }
 
     private fun exportControlsPageAssets(): ControlsPageAssets {
-        val files = linkedMapOf(
-            "controls.html" to readResourceBytes("/player-ui/controls.html"),
-            "controls.css" to readTextResource("/player-ui/controls.css")
-                .replace("/* __NUVIO_PLAYER_FONT_FACES__ */", nativePlayerFontFaces())
-                .toByteArray(Charsets.UTF_8),
-            "controls.js" to readResourceBytes("/player-ui/controls.js"),
-            "timed-metadata.js" to readResourceBytes("/player-ui/timed-metadata.js"),
-            "fonts/jetbrains_sans_regular.ttf" to readResourceBytes(
-                "/composeResources/nuvio.composeapp.generated.resources/font/jetbrains_sans_regular.ttf",
-            ),
-            "fonts/jetbrains_sans_semibold.ttf" to readResourceBytes(
-                "/composeResources/nuvio.composeapp.generated.resources/font/jetbrains_sans_semibold.ttf",
-            ),
-            "fonts/jetbrains_sans_bold.ttf" to readResourceBytes(
-                "/composeResources/nuvio.composeapp.generated.resources/font/jetbrains_sans_bold.ttf",
-            ),
-        )
+        val files = NativePlayerUiAssets.files()
         val root = DesktopCache.installVersionedFiles("player-ui", files).toFile()
         return ControlsPageAssets(
             url = root.resolve("controls.html").toURI().toASCIIString(),
         )
     }
-
-    private fun nativePlayerFontFaces(): String =
-        """
-            @font-face {
-              font-family: "Nuvio JetBrains Sans";
-              src: url("fonts/jetbrains_sans_regular.ttf") format("truetype");
-              font-weight: 400;
-              font-style: normal;
-              font-display: block;
-            }
-            @font-face {
-              font-family: "Nuvio JetBrains Sans";
-              src: url("fonts/jetbrains_sans_semibold.ttf") format("truetype");
-              font-weight: 600;
-              font-style: normal;
-              font-display: block;
-            }
-            @font-face {
-              font-family: "Nuvio JetBrains Sans";
-              src: url("fonts/jetbrains_sans_bold.ttf") format("truetype");
-              font-weight: 700 900;
-              font-style: normal;
-              font-display: block;
-            }
-        """.trimIndent()
-
-    private fun readTextResource(resource: String): String =
-        readResourceBytes(resource).toString(Charsets.UTF_8)
 
     private fun readResourceBytes(resource: String): ByteArray =
         resourceBytesOrNull(resource) ?: error("Missing native player resource: $resource")

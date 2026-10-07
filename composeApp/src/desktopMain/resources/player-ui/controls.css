@@ -1,4 +1,4 @@
-/* __NUVIO_PLAYER_FONT_FACES__ */
+/* __TELUMIA_PLAYER_FONT_FACES__ */
 
 :root {
   --hp: 20px;
@@ -124,7 +124,7 @@ body {
   overflow: hidden;
   background: transparent;
   color: var(--theme-control-foreground);
-  font-family: "Nuvio JetBrains Sans", "JetBrains Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Telumia Manrope", "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
   user-select: none;
 }
