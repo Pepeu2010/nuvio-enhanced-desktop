@@ -8,6 +8,21 @@ import kotlin.test.assertTrue
 import java.io.IOException
 
 class DesktopMediaCachePreferencesTest {
+    @Test fun anOlderClientCannotOverwriteFutureOrUnreadableCacheDocuments() {
+        val file = Files.createTempDirectory("telumia-cache-future").resolve("preferences.properties")
+        val store = DesktopStorage.Store(file)
+        val preferences = DesktopMediaCachePreferences(store)
+        for (raw in listOf("{\"schemaVersion\":999,\"mode\":\"FUTURE\",\"futureOption\":42}",
+            "{", "{\"schemaVersion\":\"next\"}", "{}")) {
+            store.putString("device_cache_policy_v1", raw)
+            val original = Files.readAllBytes(file)
+            assertEquals(MediaCacheSettings(), preferences.load())
+            assertFailsWith<IOException> { preferences.save(MediaCacheSettings(MediaCacheMode.MANUAL, 2048L * MIB)) }
+            assertEquals(raw, store.getString("device_cache_policy_v1"))
+            assertTrue(original.contentEquals(Files.readAllBytes(file)))
+            assertEquals(raw, DesktopStorage.Store(file).getString("device_cache_policy_v1"))
+        }
+    }
     @Test fun failedPreferenceReplacementRestoresMemoryAndCanBeRetried() {
         val directory = Files.createTempDirectory("telumia-preference-failure")
         val file = directory.resolve("preferences.properties")

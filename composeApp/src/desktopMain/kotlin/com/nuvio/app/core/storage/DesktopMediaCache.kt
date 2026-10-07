@@ -19,7 +19,13 @@ internal object DesktopMediaCache {
 
     fun detectDevice(): MediaCacheDeviceSnapshot = MediaCacheDeviceSnapshot(
         memoryBytes = runCatching { (ManagementFactory.getOperatingSystemMXBean() as? OperatingSystemMXBean)?.totalMemorySize }.getOrNull(),
-        usableStorageBytes = runCatching { Files.getFileStore(root).usableSpace }.getOrNull())
+        usableStorageBytes = runCatching { Files.getFileStore(root).usableSpace }.getOrNull(),
+        occupiedCacheBytes = occupiedCache.bytes)
+
+    internal val occupiedCache: MediaCacheOccupancy by lazy {
+        OwnedMediaCacheOccupancy.measure(DesktopStorage.cacheDir,
+            MediaCacheCategory.entries.map { listOf("media-cache-v1", it.directoryName) } + listOf(listOf("gif-cache")))
+    }
 
     fun directory(category: MediaCacheCategory): Path = root.resolve(category.directoryName)
     val writesEnabled: Boolean get() = activeBudget.totalBytes > 0

@@ -1,6 +1,7 @@
 package com.nuvio.app.core.storage
 
 import kotlinx.serialization.json.*
+import java.io.IOException
 
 internal class DesktopMediaCachePreferences(private val store: DesktopStorage.Store) {
     private val key = "device_cache_policy_v1"
@@ -11,7 +12,12 @@ internal class DesktopMediaCachePreferences(private val store: DesktopStorage.St
             payload["manualBytes"]?.jsonPrimitive?.longOrNull?.coerceIn(32L * MIB, MediaCachePolicy.MAX_CONFIGURED_BYTES))
     }.getOrDefault(MediaCacheSettings())
 
-    fun save(settings: MediaCacheSettings) {
+    @Synchronized fun save(settings: MediaCacheSettings) {
+        // Older clients may read defaults, but must never downgrade an unknown document.
+        store.getString(key)?.let { raw ->
+            val version = runCatching { Json.parseToJsonElement(raw).jsonObject["schemaVersion"]?.jsonPrimitive?.intOrNull }.getOrNull()
+            if (version != 1) throw IOException("Unsupported cache settings version")
+        }
         val payload = buildJsonObject {
             put("schemaVersion", 1)
             put("mode", settings.mode.name)
