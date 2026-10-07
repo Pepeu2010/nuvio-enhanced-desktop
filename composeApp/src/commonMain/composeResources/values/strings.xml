@@ -2533,4 +2533,6 @@
     <string name="profile_studio_category_space">Space</string>
     <string name="profile_studio_library_error">Could not load the bundled avatars. You can still choose a local image.</string>
     <string name="profile_mutation_failed">Could not confirm this profile change. Your editor remains open; check your connection and try again.</string>
+    <string name="telumia_profile_selection_hint">Choose a profile to continue.</string>
+    <string name="telumia_profile_selection_empty">Create your first profile to get started.</string>
 </resources>
