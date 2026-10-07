@@ -367,9 +367,7 @@ private fun ProfileAvatarCard(
     val avatarItem = remember(profile.avatarId, avatars) {
         profile.avatarId?.let { id -> avatars.find { it.id == id } }
     }
-    val avatarImageUrl = remember(profile.avatarUrl, avatarItem) {
-        profileAvatarImageUrl(profile, avatarItem)
-    }
+    val avatarImageUrl = rememberProfileAvatarImageUrl(profile, avatarItem)
 
     val animAlpha = remember { Animatable(0f) }
     val animScale = remember { Animatable(0.85f) }

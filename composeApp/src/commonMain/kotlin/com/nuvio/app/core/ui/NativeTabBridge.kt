@@ -1,11 +1,13 @@
 package com.nuvio.app.core.ui
 
 import com.nuvio.app.features.profiles.AvatarRepository
+import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.features.profiles.AvatarCatalogItem
 import com.nuvio.app.features.profiles.MAX_PROFILES
 import com.nuvio.app.features.profiles.NuvioProfile
 import com.nuvio.app.features.profiles.PinVerifyResult
 import com.nuvio.app.features.profiles.ProfileRepository
+import com.nuvio.app.features.profiles.ProfileStudioAvatars
 import com.nuvio.app.features.profiles.profileAvatarImageUrl
 import com.nuvio.app.features.profiles.showAlreadyActiveProfileToast
 import kotlinx.coroutines.CoroutineScope
@@ -116,7 +118,7 @@ class NativeProfileSwitcherController {
     fun observeState(callback: (NativeProfileSwitcherState) -> Unit) {
         observationJob?.cancel()
         observationJob = scope.launch {
-            combine(ProfileRepository.state, AvatarRepository.avatars) { state, avatars ->
+            combine(ProfileRepository.state, AvatarRepository.avatars, ProfileStudioAvatars.revision, AuthRepository.state) { state, avatars, _, _ ->
                 nativeState(
                     profilesLoaded = state.isLoaded,
                     profiles = state.profiles,

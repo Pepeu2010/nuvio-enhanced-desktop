@@ -54,6 +54,7 @@ import com.nuvio.app.features.profiles.ProfileEditScreen
 import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.profiles.ProfileSelectionScreen
 import com.nuvio.app.features.profiles.profileAvatarImageUrl
+import com.nuvio.app.features.profiles.ProfileStudioAvatars
 import com.nuvio.app.features.trakt.TraktAuthRepository
 import com.nuvio.app.features.trakt.TraktSettingsRepository
 import com.nuvio.app.features.watched.WatchedRepository
@@ -157,6 +158,7 @@ internal fun AppGate(
     val authState by AuthRepository.state.collectAsStateWithLifecycle()
     val profileState by ProfileRepository.state.collectAsStateWithLifecycle()
     val profileAvatars by AvatarRepository.avatars.collectAsStateWithLifecycle()
+    val profileStudioRevision = ProfileStudioAvatars.revision.collectAsStateWithLifecycle().value
     val networkStatusUiState by remember {
         NetworkStatusRepository.uiState
     }.collectAsStateWithLifecycle()
@@ -173,6 +175,7 @@ internal fun AppGate(
         profileState.activeProfile?.avatarId,
         profileState.activeProfile?.avatarUrl,
         profileAvatars,
+        profileStudioRevision,
     ) {
         val activeProfile = profileState.activeProfile
         val avatarItem = activeProfile?.avatarId?.let { avatarId ->

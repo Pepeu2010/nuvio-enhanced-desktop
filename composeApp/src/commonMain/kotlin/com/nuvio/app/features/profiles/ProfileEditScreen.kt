@@ -110,6 +110,9 @@ fun ProfileEditScreen(
         selectedAvatarId?.let { id -> avatars.find { it.id == id } }
     }
     val visibleAvatarItem = if (customAvatarUrl == null) selectedAvatarItem else null
+    val studioRevision = ProfileStudioAvatars.revision.collectAsStateWithLifecycle().value
+    val avatarAccount = AuthRepository.state.collectAsStateWithLifecycle().value
+    val localAvatarPreview = remember(currentProfile, studioRevision, avatarAccount) { currentProfile?.let(ProfileStudioAvatars::imageUrl) }
     val previewAccent = remember(visibleAvatarItem, fallbackColorHex) {
         parseHexColor(visibleAvatarItem?.bgColor ?: fallbackColorHex)
     }
@@ -135,10 +138,14 @@ fun ProfileEditScreen(
                 onNameChange = { name = it },
                 onUsesPrimaryAddonsChange = { usesPrimaryAddons = it },
                 selectedAvatar = visibleAvatarItem,
-                customAvatarUrl = customAvatarUrl,
+                customAvatarUrl = localAvatarPreview ?: customAvatarUrl,
                 accentColor = previewAccent,
                 hasAvatarChoices = avatars.isNotEmpty(),
             )
+        }
+
+        item {
+            currentProfile?.let { PlatformProfileStudioAvatarEditor(it) }
         }
 
         item {
@@ -349,7 +356,12 @@ fun ProfileEditScreen(
         onConfirm = {
             showDeleteConfirm = false
             scope.launch {
-                currentProfile?.let { ProfileRepository.deleteProfile(it.profileIndex) }
+                currentProfile?.let { deleted ->
+                    ProfileRepository.deleteProfile(deleted.profileIndex)
+                    if (ProfileRepository.state.value.profiles.none { it.profileIndex == deleted.profileIndex }) {
+                        ProfileStudioAvatars.clearDeletedProfile(deleted)
+                    }
+                }
                 onBack()
             }
         },

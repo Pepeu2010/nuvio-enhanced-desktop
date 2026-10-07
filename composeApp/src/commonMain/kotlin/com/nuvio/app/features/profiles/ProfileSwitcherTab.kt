@@ -998,9 +998,7 @@ private fun PopupProfileBubble(
     val avatarItem = remember(profile.avatarId, avatars) {
         profile.avatarId?.let { id -> avatars.find { it.id == id } }
     }
-    val avatarImageUrl = remember(profile.avatarUrl, avatarItem) {
-        profileAvatarImageUrl(profile, avatarItem)
-    }
+    val avatarImageUrl = rememberProfileAvatarImageUrl(profile, avatarItem)
 
     // Per-item entrance animation
     val itemAlpha = remember { Animatable(0f) }
@@ -1178,9 +1176,7 @@ fun ActiveProfileMiniAvatar(
     val avatarItem = remember(profile.avatarId, avatars) {
         profile.avatarId?.let { id -> avatars.find { it.id == id } }
     }
-    val avatarImageUrl = remember(profile.avatarUrl, avatarItem) {
-        profileAvatarImageUrl(profile, avatarItem)
-    }
+    val avatarImageUrl = rememberProfileAvatarImageUrl(profile, avatarItem)
 
     val borderColor = if (selected) {
         tokens.colors.borderSelected
