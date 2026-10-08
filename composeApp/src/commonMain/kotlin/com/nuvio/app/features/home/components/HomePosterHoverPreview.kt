@@ -38,12 +38,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -57,6 +59,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -73,6 +76,8 @@ import com.nuvio.app.core.format.formatReleaseDateForDisplay
 import com.nuvio.app.core.ui.NuvioAsyncImage
 import com.nuvio.app.core.ui.NuvioPosterWatchedOverlay
 import com.nuvio.app.core.ui.NuvioTokens
+import com.nuvio.app.core.ui.LocalUiMotion
+import com.nuvio.app.core.ui.PosterCardStyleUiState
 import com.nuvio.app.core.ui.PosterZoomOverlayCoordinator
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.core.ui.rememberPosterCardStyleUiState
@@ -92,6 +97,8 @@ import com.nuvio.app.features.watching.application.WatchingActions
 import com.nuvio.app.isDesktop
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.hero_add_to_library
 import nuvio.composeapp.generated.resources.hero_mark_unwatched
@@ -116,6 +123,8 @@ internal fun HomePosterHoverPreview(
     onClick: (() -> Unit)?,
     onLongClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    previewSettings: PosterCardStyleUiState? = null,
+    trailerResolver: suspend (MetaPreview) -> TrailerPlaybackSource? = ::resolveHomePosterHoverTrailerPlaybackSource,
     content: @Composable (Modifier) -> Unit,
 ) {
     if (!isDesktop) {
@@ -123,7 +132,8 @@ internal fun HomePosterHoverPreview(
         return
     }
 
-    val posterCardStyle = rememberPosterCardStyleUiState()
+    val posterCardStyle = previewSettings ?: rememberPosterCardStyleUiState()
+    val motion = LocalUiMotion.current
     val trailerPlaybackEnabled = AppFeaturePolicy.trailerPlaybackMode == TrailerPlaybackMode.IN_APP &&
         posterCardStyle.hoverPreviewTrailerEnabled
     if (!posterCardStyle.hoverPreviewEnabled) {
@@ -138,13 +148,18 @@ internal fun HomePosterHoverPreview(
 
     val anchorInteractionSource = remember { MutableInteractionSource() }
     val previewInteractionSource = remember { MutableInteractionSource() }
+    val ownershipToken = remember(item.type, item.id) { Any() }
+    val activeOwner by homePosterPreviewOwnership.active.collectAsState()
+    val ownsPreview = activeOwner === ownershipToken
+    val currentTrailerResolver by rememberUpdatedState(trailerResolver)
+    DisposableEffect(ownershipToken) {
+        onDispose { homePosterPreviewOwnership.release(ownershipToken) }
+    }
     val anchorHovered by anchorInteractionSource.collectIsHoveredAsState()
     val previewHovered by previewInteractionSource.collectIsHoveredAsState()
     var previewVisible by remember(item.type, item.id) { mutableStateOf(false) }
     var popupMounted by remember(item.type, item.id) { mutableStateOf(false) }
     var previewDismissedByScroll by remember(item.type, item.id) { mutableStateOf(false) }
-    var trailerRequestId by remember(item.type, item.id) { mutableIntStateOf(0) }
-    var trailerResolutionPending by remember(item.type, item.id) { mutableStateOf(false) }
     var trailerPlaybackSource by remember(item.type, item.id) {
         mutableStateOf<TrailerPlaybackSource?>(null)
     }
@@ -168,6 +183,8 @@ internal fun HomePosterHoverPreview(
         previewHovered,
         posterCardStyle.hoverPreviewOpenDelayMillis,
         previewDismissedByScroll,
+        motion,
+        ownershipToken,
     ) {
         if (previewDismissedByScroll) {
             if (!anchorHovered && !previewHovered) {
@@ -178,6 +195,7 @@ internal fun HomePosterHoverPreview(
         if (anchorHovered || previewHovered) {
             if (!popupMounted) {
                 delay(posterCardStyle.hoverPreviewOpenDelayMillis.toLong())
+                homePosterPreviewOwnership.claim(ownershipToken)
                 popupMounted = true
                 withFrameNanos { }
             }
@@ -185,40 +203,28 @@ internal fun HomePosterHoverPreview(
         } else if (popupMounted) {
             delay(HoverPreviewCloseDelayMillis)
             previewVisible = false
-            delay(HoverPreviewExitDurationMillis.toLong())
+            delay(motion.durationMillis(HoverPreviewExitDurationMillis).toLong())
+            popupMounted = false
+            homePosterPreviewOwnership.release(ownershipToken)
+        }
+    }
+
+    LaunchedEffect(ownsPreview) {
+        if (!ownsPreview) {
+            previewVisible = false
             popupMounted = false
         }
     }
 
-    LaunchedEffect(anchorHovered, trailerPlaybackEnabled) {
-        if (
-            anchorHovered &&
-            trailerPlaybackEnabled &&
-            trailerPlaybackSource == null &&
-            !trailerResolutionPending
-        ) {
-            delay(HoverTrailerExtractionDebounceMillis)
-            trailerResolutionPending = true
-            trailerRequestId += 1
-        }
-    }
-
-    LaunchedEffect(
-        trailerRequestId,
-        trailerPlaybackEnabled,
-        item.type,
-        item.id,
-    ) {
-        if (!trailerPlaybackEnabled) {
-            trailerPlaybackSource = null
-            trailerResolutionPending = false
-            return@LaunchedEffect
-        }
-        if (trailerRequestId == 0) return@LaunchedEffect
-        try {
-            trailerPlaybackSource = resolveHomePosterHoverTrailerPlaybackSource(item)
-        } finally {
-            trailerResolutionPending = false
+    val hoverHeld = anchorHovered || previewHovered
+    LaunchedEffect(ownsPreview, hoverHeld, trailerPlaybackEnabled, item.type, item.id) {
+        trailerPlaybackSource = null
+        if (!ownsPreview || !hoverHeld || !trailerPlaybackEnabled) return@LaunchedEffect
+        delay(HoverTrailerExtractionDebounceMillis)
+        val source = resolveBoundedHoverPreview { currentTrailerResolver(item) }
+        coroutineContext.ensureActive()
+        if (homePosterPreviewOwnership.active.value === ownershipToken) {
+            trailerPlaybackSource = source
         }
     }
 
@@ -289,30 +295,30 @@ internal fun HomePosterHoverPreview(
                     visible = previewVisible,
                     enter = fadeIn(
                         animationSpec = tween(
-                            durationMillis = HoverPreviewEnterDurationMillis,
+                            durationMillis = motion.durationMillis(HoverPreviewEnterDurationMillis),
                             easing = NuvioTokens.Motion.decelerate,
                         ),
                     ) + scaleIn(
                         animationSpec = tween(
-                            durationMillis = HoverPreviewEnterDurationMillis,
+                            durationMillis = motion.durationMillis(HoverPreviewEnterDurationMillis),
                             easing = NuvioTokens.Motion.emphasized,
                         ),
-                        initialScale = 0.9f,
+                        initialScale = motion.scale(0.9f),
                     ) + slideInVertically(
                         animationSpec = tween(
-                            durationMillis = HoverPreviewEnterDurationMillis,
+                            durationMillis = motion.durationMillis(HoverPreviewEnterDurationMillis),
                             easing = NuvioTokens.Motion.decelerate,
                         ),
-                        initialOffsetY = { height -> height / 18 },
+                        initialOffsetY = { height -> if (motion.allowsSpatialEffects) height / 18 else 0 },
                     ),
                     exit = fadeOut(
-                        animationSpec = tween(HoverPreviewExitDurationMillis),
+                        animationSpec = tween(motion.durationMillis(HoverPreviewExitDurationMillis)),
                     ) + scaleOut(
-                        animationSpec = tween(HoverPreviewExitDurationMillis),
-                        targetScale = 0.97f,
+                        animationSpec = tween(motion.durationMillis(HoverPreviewExitDurationMillis)),
+                        targetScale = motion.scale(0.97f),
                     ) + slideOutVertically(
-                        animationSpec = tween(HoverPreviewExitDurationMillis),
-                        targetOffsetY = { height -> height / 32 },
+                        animationSpec = tween(motion.durationMillis(HoverPreviewExitDurationMillis)),
+                        targetOffsetY = { height -> if (motion.allowsSpatialEffects) height / 32 else 0 },
                     ),
                 ) {
                     HomePosterPreviewCard(
@@ -322,13 +328,15 @@ internal fun HomePosterHoverPreview(
                         trailerEnabled = trailerPlaybackEnabled,
                         trailerSoundEnabled = posterCardStyle.hoverPreviewTrailerSoundEnabled,
                         trailerStartSeconds = posterCardStyle.hoverPreviewTrailerStartSeconds,
-                        trailerPlaybackSource = trailerPlaybackSource,
+                        trailerPlaybackSource = trailerPlaybackSource.takeIf { ownsPreview && hoverHeld },
                         modifier = Modifier
+                            .testTag("home-hover-preview")
                             .hoverable(previewInteractionSource)
                             .onPointerEvent(PointerEventType.Scroll) {
                                 previewDismissedByScroll = true
                                 previewVisible = false
                                 popupMounted = false
+                                homePosterPreviewOwnership.release(ownershipToken)
                             },
                         onClick = onClick,
                         onLongClick = onLongClick,

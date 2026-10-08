@@ -17,6 +17,7 @@ import com.nuvio.app.features.details.youtubePlaybackUrl
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.trailer.TrailerPlaybackResolver
 import com.nuvio.app.features.trailer.TrailerPlaybackSource
+import com.nuvio.app.core.ui.LocalUiMotion
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
@@ -29,6 +30,7 @@ internal fun HomePosterHoverTrailer(
     startPositionSeconds: Int,
     modifier: Modifier = Modifier,
 ) {
+    val motion = LocalUiMotion.current
     var trailerReady by remember(playbackSource?.videoUrl, playbackSource?.audioUrl) { mutableStateOf(false) }
     var trailerFinished by remember(playbackSource?.videoUrl, playbackSource?.audioUrl) { mutableStateOf(false) }
     var playerMounted by remember(playbackSource?.videoUrl, playbackSource?.audioUrl) {
@@ -36,13 +38,13 @@ internal fun HomePosterHoverTrailer(
     }
     val trailerAlpha by animateFloatAsState(
         targetValue = if (trailerReady && !trailerFinished) 1f else 0f,
-        animationSpec = tween(durationMillis = HoverTrailerFadeDurationMillis),
+        animationSpec = tween(durationMillis = motion.durationMillis(HoverTrailerFadeDurationMillis)),
         label = "poster_hover_trailer_alpha",
     )
 
-    LaunchedEffect(trailerFinished, playbackSource) {
+    LaunchedEffect(trailerFinished, playbackSource, motion) {
         if (trailerFinished && playbackSource != null) {
-            delay(HoverTrailerFadeDurationMillis.toLong())
+            delay(motion.durationMillis(HoverTrailerFadeDurationMillis).toLong())
             playerMounted = false
         }
     }
