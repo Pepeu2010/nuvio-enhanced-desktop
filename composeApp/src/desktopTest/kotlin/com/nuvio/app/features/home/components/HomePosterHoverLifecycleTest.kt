@@ -36,6 +36,9 @@ class HomePosterHoverLifecycleTest {
                 Box(Modifier.padding(64.dp)) {
                     HomePosterHoverPreview(MetaPreview("fixture:hover", "movie", "Uma história para descobrir"),
                         isWatched=false, onClick={}, onLongClick=null, previewSettings=settings,
+                        // Controlled supported-platform resolver fixture. The Windows surface is
+                        // currently disabled; this does not claim Windows trailer playback.
+                        trailerPreviewSupported=true,
                         trailerResolver={
                             started.set(true)
                             try { awaitCancellation() } finally { cleanedUp.set(true) }

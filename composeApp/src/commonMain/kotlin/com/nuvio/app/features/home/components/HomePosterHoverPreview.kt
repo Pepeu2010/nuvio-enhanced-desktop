@@ -124,6 +124,7 @@ internal fun HomePosterHoverPreview(
     onLongClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
     previewSettings: PosterCardStyleUiState? = null,
+    trailerPreviewSupported: Boolean = AppFeaturePolicy.trailerPlaybackMode == TrailerPlaybackMode.IN_APP,
     trailerResolver: suspend (MetaPreview) -> TrailerPlaybackSource? = ::resolveHomePosterHoverTrailerPlaybackSource,
     content: @Composable (Modifier) -> Unit,
 ) {
@@ -134,8 +135,7 @@ internal fun HomePosterHoverPreview(
 
     val posterCardStyle = previewSettings ?: rememberPosterCardStyleUiState()
     val motion = LocalUiMotion.current
-    val trailerPlaybackEnabled = AppFeaturePolicy.trailerPlaybackMode == TrailerPlaybackMode.IN_APP &&
-        posterCardStyle.hoverPreviewTrailerEnabled
+    val trailerPlaybackEnabled = trailerPreviewSupported && posterCardStyle.hoverPreviewTrailerEnabled
     if (!posterCardStyle.hoverPreviewEnabled) {
         content(modifier)
         return
