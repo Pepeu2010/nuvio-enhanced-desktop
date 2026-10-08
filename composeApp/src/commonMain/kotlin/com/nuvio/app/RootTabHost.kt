@@ -1,10 +1,14 @@
 package com.nuvio.app
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -19,11 +23,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.compose.rememberLifecycleOwner
 import com.nuvio.app.core.ui.LocalScreenActive
+import com.nuvio.app.core.ui.LocalUiMotion
 
 @Composable
 internal fun RootTabHost(
@@ -76,6 +82,16 @@ private fun RootTabPane(
     stateHolder: SaveableStateHolder,
     content: @Composable (AppScreenTab) -> Unit,
 ) {
+    val motion = LocalUiMotion.current
+    val entrance = remember { Animatable(1f) }
+    LaunchedEffect(active, motion) {
+        if (!active || motion.durationMillis(240) == 0) {
+            entrance.snapTo(1f)
+        } else {
+            entrance.snapTo(0f)
+            entrance.animateTo(1f, tween(motion.durationMillis(240), easing = FastOutSlowInEasing))
+        }
+    }
     val lifecycleOwner = rememberLifecycleOwner(
         maxLifecycle = if (active) Lifecycle.State.RESUMED else Lifecycle.State.CREATED,
     )
@@ -86,7 +102,10 @@ private fun RootTabPane(
         stateHolder.SaveableStateProvider(tab.name) {
             Box(
                 Modifier.fillMaxSize()
-                    .graphicsLayer()
+                    .graphicsLayer {
+                        alpha = entrance.value
+                        translationY = if (motion.allowsSpatialEffects) (1f - entrance.value) * 12.dp.toPx() else 0f
+                    }
                     .focusProperties { canFocus = active }
                     .pointerInput(active) {
                         if (!active) {

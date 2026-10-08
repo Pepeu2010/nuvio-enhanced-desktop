@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.nuvio.app.core.diagnostics.redactDiagnosticText
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.core.sync.putSyncOriginClientId
+import com.nuvio.app.core.sync.accountSyncOwner
 import com.nuvio.app.features.profiles.ProfileRepository
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
@@ -111,16 +112,20 @@ object AddonRepository {
     }
 
     suspend fun pullFromServer(profileId: Int) {
-        currentProfileId = resolveEffectiveProfileId(profileId)
+        val owner = accountSyncOwner(profileId) ?: return
+        val effectiveProfileId = resolveEffectiveProfileId(profileId)
         log.i { "pullFromServer() — profileId=$profileId, initialized=$initialized" }
         runCatching {
             val rows = SupabaseProvider.client.postgrest
                 .from("addons")
                 .select {
-                    filter { eq("profile_id", currentProfileId) }
+                    filter { eq("profile_id", effectiveProfileId) }
                     order("sort_order", Order.ASCENDING)
                 }
                 .decodeList<AddonRow>()
+            owner.requireCurrent()
+            if (resolveEffectiveProfileId(profileId) != effectiveProfileId) throw CancellationException("Addon scope changed")
+            currentProfileId = effectiveProfileId
 
             val rowsByUrl = linkedMapOf<String, AddonRow>()
             rows.forEach { row ->
@@ -156,7 +161,9 @@ object AddonRepository {
             initialized = true
             log.i { "pullFromServer() — applied ${urls.size} addons to state" }
         }.onFailure { e ->
+            if (e is CancellationException) throw e
             log.e { "pullFromServer() — FAILED: ${e::class.simpleName}" }
+            throw e
         }
     }
 
@@ -341,6 +348,7 @@ object AddonRepository {
 
     private fun pushToServer() {
         if (isUsingPrimaryAddonsFromSecondaryProfile()) return
+        val owner = accountSyncOwner() ?: return
         val profileId = currentProfileId
         val addons = _uiState.value.addons
             .distinctBy { it.manifestUrl }
@@ -357,6 +365,8 @@ object AddonRepository {
         pushJob = scope.launch {
             try {
                 delay(ADDON_PUSH_DEBOUNCE_MS)
+                owner.requireCurrent()
+                if (resolveEffectiveProfileId(owner.profileId) != profileId) return@launch
                 log.d { "pushToServer() — profileId=$profileId, pushing ${addons.size} addons" }
                 val params = buildJsonObject {
                     put("p_profile_id", profileId)

@@ -5,6 +5,8 @@ import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.core.auth.AuthState
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.core.sync.putSyncOriginClientId
+import com.nuvio.app.core.sync.accountSyncOwner
+import kotlinx.coroutines.CancellationException
 import com.nuvio.app.features.profiles.ProfileRepository
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
@@ -45,12 +47,13 @@ object CollectionSyncService {
     }
 
     suspend fun pullFromServer(profileId: Int) {
-        if (ProfileRepository.activeProfileId != profileId) return
+        val owner = accountSyncOwner(profileId) ?: return
         runCatching {
             val params = buildJsonObject {
                 put("p_profile_id", profileId)
             }
             val result = SupabaseProvider.client.postgrest.rpc("sync_pull_collections", params)
+            owner.requireCurrent()
             if (ProfileRepository.activeProfileId != profileId) return@runCatching
             val blobs = result.decodeList<SupabaseCollectionBlob>()
             val blob = blobs.firstOrNull()
@@ -85,19 +88,23 @@ object CollectionSyncService {
                 isSyncingFromRemote = false
                 log.i { "pullFromServer — applied ${remoteCollections.size} collections from remote" }
             } else {
-                log.w { "pullFromServer — failed to parse remote collections JSON" }
+                error("Invalid remote collections JSON")
             }
         }.onFailure { e ->
             isSyncingFromRemote = false
+            if (e is CancellationException) throw e
             log.e(e) { "pullFromServer — FAILED" }
+            throw e
         }
     }
 
     fun triggerPush() {
+        val owner = accountSyncOwner() ?: return
         pushJob?.cancel()
         pushJob = scope.launch {
-            val profileId = ProfileRepository.activeProfileId
+            val profileId = owner.profileId
             delay(500)
+            owner.requireCurrent()
             if (ProfileRepository.activeProfileId != profileId) return@launch
             if (isSyncingFromRemote) return@launch
             val authState = AuthRepository.state.value

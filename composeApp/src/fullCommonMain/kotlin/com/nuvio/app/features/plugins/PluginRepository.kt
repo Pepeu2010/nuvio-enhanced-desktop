@@ -2,6 +2,7 @@ package com.nuvio.app.features.plugins
 
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.network.SupabaseProvider
+import com.nuvio.app.core.sync.accountSyncOwner
 import com.nuvio.app.features.addons.encodeUnsafeHttpUrlCharacters
 import com.nuvio.app.features.addons.httpGetText
 import com.nuvio.app.features.profiles.ProfileRepository
@@ -118,16 +119,18 @@ actual object PluginRepository {
     }
 
     actual suspend fun pullFromServer(profileId: Int) {
+        val owner = accountSyncOwner(profileId) ?: return
         val effectiveProfileId = resolveEffectiveProfileId(profileId)
         ensureStateLoadedForProfile(effectiveProfileId)
         runCatching {
             val rows = SupabaseProvider.client.postgrest
                 .from("plugins")
                 .select {
-                    filter { eq("profile_id", currentProfileId) }
+                    filter { eq("profile_id", effectiveProfileId) }
                     order("sort_order", Order.ASCENDING)
                 }
                 .decodeList<PluginRow>()
+            owner.requireCurrent()
 
             val urls = dedupeManifestUrls(rows.map { it.url })
             val existingState = _uiState.value
@@ -171,7 +174,8 @@ actual object PluginRepository {
 
             initialized = true
         }.onFailure { error ->
-            log.e(error) { "pullFromServer failed" }
+            log.e { "pullFromServer failed: ${error::class.simpleName}" }
+            throw error
         }
     }
 

@@ -108,6 +108,7 @@ object ProfileSettingsSync {
     }
 
     suspend fun pull(profileId: Int): Boolean {
+        val owner = accountSyncOwner(profileId) ?: return false
         ensureRepositoriesLoaded()
         return syncMutex.withLock {
             if (ProfileRepository.activeProfileId != profileId) {
@@ -125,6 +126,7 @@ object ProfileSettingsSync {
                     put("p_platform", profileSettingsPlatform)
                 }
                 val result = SupabaseProvider.client.postgrest.rpc("sync_pull_profile_settings_blob", params)
+                owner.requireCurrent()
                 if (ProfileRepository.activeProfileId != profileId) return@withLock false
                 val response = result.decodeList<SettingsBlobResponse>().firstOrNull()
                 val remoteJson = response?.settingsJson
@@ -140,7 +142,7 @@ object ProfileSettingsSync {
                         json.decodeFromJsonElement(MobileProfileSettingsBlob.serializer(), remoteJson)
                     }.getOrElse { error ->
                         log.e(error) { "pull(profileId=$profileId) — failed to decode remote settings blob" }
-                        return@withLock false
+                        throw error
                     }
                     val remoteSignature = buildSignature(remoteBlob)
                     if (remoteSignature == localSignature) {
@@ -159,7 +161,7 @@ object ProfileSettingsSync {
                 true
             } catch (error: Exception) {
                 log.e(error) { "pull(profileId=$profileId) — FAILED" }
-                false
+                throw error
             } finally {
                 isServerSyncInFlight = false
             }

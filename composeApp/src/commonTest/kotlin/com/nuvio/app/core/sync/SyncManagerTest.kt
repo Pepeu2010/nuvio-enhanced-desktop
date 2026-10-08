@@ -1,6 +1,7 @@
 package com.nuvio.app.core.sync
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import kotlin.test.Test
@@ -9,6 +10,41 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SyncManagerTest {
+
+    @Test
+    fun `full refresh covers profiles and every account surface`() = runBlocking {
+        val events = mutableListOf<String>()
+        val result = runOrderedProfileSync(1, true,
+            recordingOperations(events).copy(pullProfiles = { events += "profiles" }))
+        assertTrue(result.succeeded)
+        assertEquals("profiles", events.first())
+        assertEquals(setOf("profiles", "settings", "credentials", "addons", "plugins",
+            "library", "active-watch-source", "collections", "home-settings"), events.toSet())
+    }
+
+    @Test
+    fun `owner change during profile refresh stops subsequent pulls`() = runBlocking {
+        var current = true
+        val events = mutableListOf<String>()
+        var cancelled = false
+        try {
+            runOrderedProfileSync(1, true,
+                recordingOperations(events).copy(pullProfiles = { events += "profiles"; current = false }),
+                isCurrentOwner = { current })
+        } catch (_: CancellationException) { cancelled = true }
+        assertTrue(cancelled)
+        assertEquals(listOf("profiles"), events)
+    }
+
+    @Test
+    fun `profile failure remains incomplete while independent surfaces are attempted`() = runBlocking {
+        val events = mutableListOf<String>()
+        val result = runOrderedProfileSync(1, false,
+            recordingOperations(events).copy(pullProfiles = { error("offline") }))
+        assertEquals(setOf(ProfileSyncStep.Profiles), result.failedSteps)
+        assertTrue("collections" in events && "addons" in events)
+        assertFalse(result.succeeded)
+    }
 
     @Test
     fun `source prerequisites finish before source dependent pulls`() = runBlocking {

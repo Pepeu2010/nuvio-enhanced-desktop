@@ -6,6 +6,7 @@ import com.nuvio.app.core.auth.AuthState
 import com.nuvio.app.core.network.SupabaseProvider
 import com.nuvio.app.core.sync.HOME_CATALOG_SHARED_SYNC_PLATFORM
 import com.nuvio.app.core.sync.putSyncOriginClientId
+import com.nuvio.app.core.sync.accountSyncOwner
 import com.nuvio.app.features.profiles.ProfileRepository
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
@@ -91,10 +92,12 @@ object HomeCatalogSettingsSyncService {
     private var cachedSharedSettings: CachedSharedSettings? = null
 
     suspend fun pullFromServer(profileId: Int) {
+        val owner = accountSyncOwner(profileId) ?: return
         runCatching {
             val pullToken = currentPullToken(profileId) ?: return
             val localPayload = HomeCatalogSettingsRepository.exportToSyncPayload()
             val remoteBlob = fetchRemoteBlob(profileId)
+            owner.requireCurrent()
             cachedSharedSettings = CachedSharedSettings(
                 token = pullToken,
                 settingsJson = remoteBlob?.settingsJson ?: buildJsonObject { },
@@ -111,8 +114,7 @@ object HomeCatalogSettingsSyncService {
 
             if (remotePayload == null) {
                 log.w { "pullFromServer — failed to parse remote home catalog settings" }
-                markInitialPullComplete(pullToken)
-                return
+                error("Invalid home catalog settings")
             }
 
             if (remotePayload.items.isEmpty()) {
@@ -127,7 +129,8 @@ object HomeCatalogSettingsSyncService {
             markInitialPullComplete(pullToken)
         }.onFailure { e ->
             isSyncingFromRemote = false
-            log.e(e) { "pullFromServer — FAILED" }
+            log.e { "pullFromServer — FAILED: ${e::class.simpleName}" }
+            throw e
         }
     }
 

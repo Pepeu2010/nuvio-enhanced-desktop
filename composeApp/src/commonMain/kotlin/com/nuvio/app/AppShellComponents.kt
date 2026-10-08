@@ -11,10 +11,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -55,6 +58,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -117,9 +121,9 @@ import nuvio.composeapp.generated.resources.sidebar_search
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
-internal val DesktopSidebarCollapsedWidth = 68.dp
-internal val DesktopSidebarExpandedWidth = 192.dp
-private val DesktopSidebarExpandedContentWidth = 156.dp
+internal val DesktopSidebarCollapsedWidth = 72.dp
+internal val DesktopSidebarExpandedWidth = 224.dp
+private val DesktopSidebarExpandedContentWidth = 192.dp
 private val DesktopSidebarItemHeight = 56.dp
 private val DesktopSidebarIconSlotSize = 38.dp
 private val DesktopSidebarIconSize = NuvioTokens.Icon.lg
@@ -752,11 +756,12 @@ internal fun DesktopHoverSidebar(
             .fillMaxHeight()
             .hoverable(hoverSource)
             .zIndex(NuvioTokens.Z.navigation),
-        color = tokens.colors.background,
+        color = tokens.colors.surface,
         contentColor = tokens.colors.textPrimary,
     ) {
         BoxWithConstraints(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(
+                listOf(tokens.colors.surfaceElevated, tokens.colors.surface))),
         ) {
             val profileStackRows = profiles.size + if (profiles.size < MAX_PROFILES) 1 else 0
             val profileStackHeight = if (profileStackRows > 0) {
@@ -952,7 +957,7 @@ private fun DesktopSidebarProfileTrigger(
 }
 
 @Composable
-private fun DesktopSidebarItem(
+internal fun DesktopSidebarItem(
     label: String,
     selected: Boolean,
     expanded: Boolean,
@@ -961,8 +966,26 @@ private fun DesktopSidebarItem(
 ) {
     val tokens = MaterialTheme.nuvio
     val motionPolicy = LocalUiMotion.current
-    val contentColor = if (selected) tokens.colors.textPrimary else tokens.colors.textMuted
-    val iconColor = if (selected) tokens.colors.onAccent else contentColor
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val focused by interaction.collectIsFocusedAsState()
+    val pressed by interaction.collectIsPressedAsState()
+    val emphasized = selected || hovered || focused
+    val contentColor by animateColorAsState(
+        if (emphasized) tokens.colors.textPrimary else tokens.colors.textMuted,
+        tween(motionPolicy.durationMillis(180)), label = "sidebar_item_content")
+    val backgroundColor by animateColorAsState(
+        when { selected -> tokens.colors.accent.copy(alpha = 0.14f)
+            hovered || focused -> tokens.colors.surfaceElevated
+            else -> Color.Transparent },
+        tween(motionPolicy.durationMillis(180)), label = "sidebar_item_surface")
+    val iconColor by animateColorAsState(
+        if (selected) tokens.colors.onAccent else contentColor,
+        tween(motionPolicy.durationMillis(180)), label = "sidebar_item_icon")
+    val itemScale by animateFloatAsState(
+        if (pressed && motionPolicy.allowsSpatialEffects) motionPolicy.scale(0.98f) else 1f,
+        tween(if (motionPolicy.allowsSpatialEffects) motionPolicy.durationMillis(125) else 0),
+        label = "sidebar_item_press")
 
     Surface(
         onClick = onClick,
@@ -970,9 +993,13 @@ private fun DesktopSidebarItem(
             .fillMaxWidth()
             .height(DesktopSidebarItemHeight)
             .padding(horizontal = 6.dp, vertical = 4.dp)
+            .hoverable(interaction)
+            .graphicsLayer { scaleX = itemScale; scaleY = itemScale }
+            .border(1.dp, if (focused) tokens.colors.borderFocus else Color.Transparent, RoundedCornerShape(14.dp))
             .semantics { this.selected = selected },
-        color = if (selected) tokens.colors.accent.copy(alpha = 0.08f) else Color.Transparent,
-        shape = RoundedCornerShape(16.dp),
+        color = backgroundColor,
+        interactionSource = interaction,
+        shape = RoundedCornerShape(14.dp),
     ) {
         Row(
             modifier = Modifier

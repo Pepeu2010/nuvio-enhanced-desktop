@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -121,12 +122,13 @@ internal fun MainTabsDestination(
 
         val sidebarHoverSource = remember { MutableInteractionSource() }
         val isSidebarHovered by sidebarHoverSource.collectIsHoveredAsState()
+        var isSidebarFocused by remember { mutableStateOf(false) }
         var isProfileStackVisible by remember { mutableStateOf(false) }
 
         val isSidebarExpanded = when (navBarStyleSetting) {
             NavBarStyle.EXPANDED -> true
             NavBarStyle.COMPACT -> isProfileStackVisible
-            else -> !motionPolicy.allowsSpatialEffects || isSidebarHovered || isProfileStackVisible // ADAPTIVE
+            else -> !motionPolicy.allowsSpatialEffects || isSidebarHovered || isSidebarFocused || isProfileStackVisible // ADAPTIVE
         }
 
         val animatedSidebarWidth by animateDpAsState(
@@ -271,7 +273,8 @@ internal fun MainTabsDestination(
                         hoverSource = sidebarHoverSource,
                         profileStackVisible = isProfileStackVisible,
                         onProfileStackVisibleChange = { isProfileStackVisible = it },
-                        modifier = Modifier.align(Alignment.CenterStart),
+                        modifier = Modifier.align(Alignment.CenterStart)
+                            .onFocusChanged { isSidebarFocused = it.hasFocus },
                     )
                 }
 

@@ -8,15 +8,9 @@ import com.nuvio.app.core.time.EpisodeReleaseDatePlatform
 import com.nuvio.app.features.addons.AddonRepository
 import com.nuvio.app.features.collection.CollectionSyncService
 import com.nuvio.app.features.home.HomeCatalogSettingsSyncService
-import com.nuvio.app.features.library.LibrarySourceMode
 import com.nuvio.app.features.library.LibraryRepository
 import com.nuvio.app.features.plugins.PluginRepository
 import com.nuvio.app.features.profiles.ProfileRepository
-import com.nuvio.app.features.tracking.TrackingProviderRegistry
-import com.nuvio.app.features.tracking.TrackingSettingsRepository
-import com.nuvio.app.features.tracking.WatchProgressSource
-import com.nuvio.app.features.tracking.effectiveLibrarySourceMode
-import com.nuvio.app.features.tracking.effectiveWatchProgressSource
 import com.nuvio.app.features.watchprogress.WatchProgressSourceCoordinator
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
@@ -34,9 +28,10 @@ import kotlinx.coroutines.launch
 private const val FOREGROUND_PULL_DELAY_MS = 2500L
 private const val FOREGROUND_ACTIVITY_PULL_MIN_INTERVAL_MS = 2 * 60_000L
 private const val FULL_PULL_MIN_INTERVAL_MS = 10_000L
-private const val PERIODIC_NUVIO_SYNC_PULL_INTERVAL_MS = 15 * 60_000L
+private const val PERIODIC_NUVIO_SYNC_PULL_INTERVAL_MS = 2 * 60_000L
 
 internal enum class ProfileSyncStep {
+    Profiles,
     Addons,
     Plugins,
     ProfileSettings,
@@ -56,6 +51,7 @@ internal data class ProfileSyncOperations(
     val refreshActiveWatchSource: suspend (Int) -> Unit,
     val pullCollections: suspend (Int) -> Unit,
     val pullHomeCatalogSettings: suspend (Int) -> Unit,
+    val pullProfiles: suspend (Int) -> Unit = {},
 )
 
 internal data class ProfileActivitySyncOperations(
@@ -75,7 +71,8 @@ internal data class ProfilePullFreshness(
     val completedAtEpochMs: Long = 0L,
 ) {
     fun isRecent(profileId: Int, nowEpochMs: Long, minIntervalMs: Long): Boolean =
-        this.profileId == profileId && nowEpochMs - completedAtEpochMs < minIntervalMs
+        this.profileId == profileId && completedAtEpochMs > 0L && nowEpochMs >= completedAtEpochMs &&
+            nowEpochMs - completedAtEpochMs < minIntervalMs
 
     fun recordIfSuccessful(
         profileId: Int,
@@ -97,6 +94,7 @@ internal suspend fun runOrderedProfileSync(
     pluginsEnabled: Boolean,
     operations: ProfileSyncOperations,
     onFailure: (ProfileSyncStep, Throwable) -> Unit = { _, _ -> },
+    isCurrentOwner: () -> Boolean = { true },
 ): ProfileSyncResult {
     val failureLock = SynchronizedObject()
     val failedSteps = mutableSetOf<ProfileSyncStep>()
@@ -106,7 +104,9 @@ internal suspend fun runOrderedProfileSync(
         operation: suspend (Int) -> Unit,
     ) {
         try {
+            if (!isCurrentOwner()) throw CancellationException("Profile sync owner changed")
             operation(profileId)
+            if (!isCurrentOwner()) throw CancellationException("Profile sync owner changed")
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
@@ -117,6 +117,7 @@ internal suspend fun runOrderedProfileSync(
         }
     }
 
+    runStep(ProfileSyncStep.Profiles, operations.pullProfiles)
     runStep(ProfileSyncStep.ProfileSettings, operations.pullProfileSettings)
     runStep(ProfileSyncStep.ProviderCredentials, operations.syncProviderCredentials)
     runStep(ProfileSyncStep.Addons, operations.pullAddons)
@@ -277,6 +278,7 @@ object SyncManager {
     private var fullPullFreshness = ProfilePullFreshness()
 
     private val profileSyncOperations = ProfileSyncOperations(
+        pullProfiles = { check(ProfileRepository.pullProfiles()) { "Profile pull failed" } },
         pullAddons = { profileId -> AddonRepository.pullFromServer(profileId) },
         pullPlugins = { profileId -> PluginRepository.pullFromServer(profileId) },
         pullProfileSettings = { profileId -> ProfileSettingsSync.pull(profileId) },
@@ -358,7 +360,7 @@ object SyncManager {
                     }
                     if (!force && hasRecentActivityPull(profileId)) return@launch
                     if (ProfileRepository.activeProfileId != profileId) return@launch
-                    startActivityProfilePull(profileId = profileId, reason = "foreground")
+                    startFullProfilePull(profileId = profileId, reason = "foreground")
                 } finally {
                     synchronized(pullStateLock) {
                         if (foregroundPullJob === requestJob) {
@@ -400,6 +402,7 @@ object SyncManager {
         ) {
             val currentAuthState = AuthRepository.state.value
             if (currentAuthState !is AuthState.Authenticated || currentAuthState.isAnonymous) return@launch
+            if (currentAuthState.userId != authState.userId) return@launch
             if (ProfileRepository.activeProfileId != profileId) return@launch
 
             log.i { "Full profile sync started profile=$profileId reason=$reason" }
@@ -409,6 +412,11 @@ object SyncManager {
                     profileId = profileId,
                     pluginsEnabled = AppFeaturePolicy.pluginsEnabled,
                     operations = profileSyncOperations,
+                    isCurrentOwner = {
+                        val current = AuthRepository.state.value as? AuthState.Authenticated
+                        current != null && current.userId == authState.userId && !current.isAnonymous &&
+                            ProfileRepository.activeProfileId == profileId
+                    },
                     onFailure = { step, error ->
                         log.e(error) { "Full profile sync step failed profile=$profileId step=$step" }
                     },
@@ -528,29 +536,9 @@ object SyncManager {
                     continue
                 }
 
-                TrackingProviderRegistry.ensureLoaded()
-                TrackingSettingsRepository.ensureLoaded()
-
-                val settings = TrackingSettingsRepository.uiState.value
-                val shouldPullLibrary = effectiveLibrarySourceMode(
-                    requestedSource = settings.librarySourceMode,
-                    isProviderAuthenticated = TrackingProviderRegistry::isAuthenticated,
-                ) == LibrarySourceMode.LOCAL
-                val shouldPullWatchProgress = effectiveWatchProgressSource(
-                    requestedSource = settings.watchProgressSource,
-                    isProviderAuthenticated = TrackingProviderRegistry::isAuthenticated,
-                ) == WatchProgressSource.NUVIO_SYNC
-
-                if (!shouldPullLibrary && !shouldPullWatchProgress) {
-                    continue
-                }
-
-                startActivityProfilePull(
-                    profileId = profileId,
-                    reason = "periodic",
-                    pullLibrary = shouldPullLibrary,
-                    pullWatchActivity = shouldPullWatchProgress,
-                )
+                // Account surfaces still need refresh when Trakt/Simkl is the watch source.
+                // Each repository retains its existing source-selection policy.
+                startFullProfilePull(profileId = profileId, reason = "periodic")
             }
         }
     }
