@@ -21,7 +21,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import com.nuvio.app.isDesktop
 import nuvio.composeapp.generated.resources.Res
-import nuvio.composeapp.generated.resources.manrope_variable
+import nuvio.composeapp.generated.resources.manrope_bold
+import nuvio.composeapp.generated.resources.manrope_medium
+import nuvio.composeapp.generated.resources.manrope_regular
+import nuvio.composeapp.generated.resources.manrope_semibold
 import org.jetbrains.compose.resources.Font
 
 val LocalAppTheme = staticCompositionLocalOf { AppTheme.WHITE }
@@ -67,9 +70,10 @@ private fun buildColorScheme(palette: ThemeColorPalette, amoled: Boolean = false
 private val TelumiaSans: FontFamily
     @Composable
     get() = FontFamily(
-        Font(Res.font.manrope_variable, FontWeight.Bold, FontStyle.Normal),
-        Font(Res.font.manrope_variable, FontWeight.SemiBold, FontStyle.Normal),
-        Font(Res.font.manrope_variable, FontWeight.Normal, FontStyle.Normal),
+        Font(Res.font.manrope_bold, FontWeight.Bold, FontStyle.Normal),
+        Font(Res.font.manrope_semibold, FontWeight.SemiBold, FontStyle.Normal),
+        Font(Res.font.manrope_medium, FontWeight.Medium, FontStyle.Normal),
+        Font(Res.font.manrope_regular, FontWeight.Normal, FontStyle.Normal),
     )
 
 private val NuvioTypography: Typography
