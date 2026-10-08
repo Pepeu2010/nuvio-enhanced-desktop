@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.NavigationMotion
 import com.nuvio.app.core.ui.NuvioTheme
 import com.nuvio.app.core.ui.PosterCardStyleUiState
+import com.nuvio.app.core.ui.PosterZoomOverlayCoordinator
 import com.nuvio.app.features.home.MetaPreview
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
@@ -31,6 +32,7 @@ class HomePosterHoverLifecycleTest {
         val cleanedUp = AtomicBoolean()
         val settings = PosterCardStyleUiState(hoverPreviewEnabled=true, hoverPreviewOpenDelayMillis=500,
             hoverPreviewTrailerEnabled=true, hoverPreviewTrailerSoundEnabled=false)
+        runOnIdle { PosterZoomOverlayCoordinator.hide() }
         setContent {
             NuvioTheme(navigationMotion=NavigationMotion.OFF) {
                 Box(Modifier.padding(64.dp)) {
@@ -50,14 +52,17 @@ class HomePosterHoverLifecycleTest {
                 }
             }
         }
-        onNodeWithTag("hover-anchor").performMouseInput { enter() }
-        mainClock.advanceTimeBy(1_600)
+        onNodeWithTag("hover-anchor").performMouseInput { enter(center) }
+        waitForIdle()
+        waitUntil(timeoutMillis=4_000) { onAllNodesWithTag("home-hover-preview").fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithTag("home-hover-preview").performMouseInput { enter(center) }
+        waitForIdle()
         waitUntil(timeoutMillis=8_000) { started.get() }
         onNodeWithTag("home-hover-preview").assertIsDisplayed()
         val directory=File("build/reports/telumia-hover-preview").apply { mkdirs() }
         ImageIO.write(onNodeWithTag("home-hover-preview").captureToImage().toAwtImage(), "png", File(directory,"static-pending-preview.png"))
-        onNodeWithTag("hover-anchor").performMouseInput { exit() }
-        mainClock.advanceTimeBy(200)
+        onNodeWithTag("home-hover-preview").performMouseInput { exit() }
+        waitForIdle()
         waitUntil(timeoutMillis=4_000) { cleanedUp.get() && homePosterPreviewOwnership.active.value == null }
         onNodeWithTag("home-hover-preview").assertDoesNotExist()
         runOnIdle { assertTrue(cleanedUp.get()); assertNull(homePosterPreviewOwnership.active.value) }
