@@ -49,13 +49,13 @@ class HomePosterHoverLifecycleTest {
         }
         onNodeWithTag("hover-anchor").performMouseInput { enter() }
         mainClock.advanceTimeBy(1_600)
-        waitUntil(8_000) { started.get() }
+        waitUntil(timeoutMillis=8_000) { started.get() }
         onNodeWithTag("home-hover-preview").assertIsDisplayed()
         val directory=File("build/reports/telumia-hover-preview").apply { mkdirs() }
         ImageIO.write(onNodeWithTag("home-hover-preview").captureToImage().toAwtImage(), "png", File(directory,"static-pending-preview.png"))
         onNodeWithTag("hover-anchor").performMouseInput { exit() }
         mainClock.advanceTimeBy(200)
-        waitUntil(4_000) { cleanedUp.get() && homePosterPreviewOwnership.active.value == null }
+        waitUntil(timeoutMillis=4_000) { cleanedUp.get() && homePosterPreviewOwnership.active.value == null }
         onNodeWithTag("home-hover-preview").assertDoesNotExist()
         runOnIdle { assertTrue(cleanedUp.get()); assertNull(homePosterPreviewOwnership.active.value) }
     }
