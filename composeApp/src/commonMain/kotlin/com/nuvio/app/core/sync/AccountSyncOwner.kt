@@ -3,13 +3,17 @@ package com.nuvio.app.core.sync
 import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.core.auth.AuthState
 import com.nuvio.app.features.profiles.ProfileRepository
+import com.nuvio.app.core.network.ServerConfigurationRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
-internal data class AccountSyncOwner(val userId: String, val profileId: Int) {
-    fun matches(auth: AuthState, activeProfileId: Int): Boolean =
-        auth is AuthState.Authenticated && !auth.isAnonymous && auth.userId == userId && activeProfileId == profileId
+internal data class AccountSyncOwner(val userId: String, val profileId: Int,
+    val backendUrl: String = ServerConfigurationRepository.active.value.backendUrl) {
+    fun matches(auth: AuthState, activeProfileId: Int,
+        currentBackendUrl: String = ServerConfigurationRepository.active.value.backendUrl): Boolean =
+        auth is AuthState.Authenticated && !auth.isAnonymous && auth.userId == userId && activeProfileId == profileId &&
+            currentBackendUrl == backendUrl
 
     suspend fun requireCurrent() {
         currentCoroutineContext().ensureActive()

@@ -23,4 +23,9 @@ actual object CollectionStorage {
             ?.putString(ProfileScopedKey.of(payloadKey), payload)
             ?.apply()
     }
+    actual fun loadSyncJournal(ownerKey: String): String? = preferences?.getString("sync-v1-$ownerKey", null)
+    actual fun saveSyncJournal(ownerKey: String, payload: String) {
+        checkNotNull(preferences) { "Collection storage is not initialized" }.edit()
+            .putString("sync-v1-$ownerKey", payload).commit().also { check(it) { "Collection journal publication failed" } }
+    }
 }

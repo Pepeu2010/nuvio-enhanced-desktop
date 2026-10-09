@@ -2,44 +2,63 @@ package com.nuvio.app.features.collection
 
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.auth.AuthRepository
-import com.nuvio.app.core.auth.AuthState
-import com.nuvio.app.core.network.SupabaseProvider
-import com.nuvio.app.core.sync.putSyncOriginClientId
+import com.nuvio.app.core.sync.AccountSyncOwner
+import com.nuvio.app.core.sync.SnapshotSyncJournal
 import com.nuvio.app.core.sync.accountSyncOwner
-import kotlinx.coroutines.CancellationException
 import com.nuvio.app.features.profiles.ProfileRepository
-import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.postgrest.rpc
-import kotlin.concurrent.Volatile
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.*
+import kotlin.concurrent.Volatile
 
 object CollectionSyncService {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val log = Logger.withTag("CollectionSyncService")
-    private val json = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
-
-    private const val PUSH_DEBOUNCE_MS = 1500L
-
-    @Volatile
-    var isSyncingFromRemote: Boolean = false
-
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val syncMutex = Mutex()
+    private val journalLock = SynchronizedObject()
+    private val journals = linkedMapOf<String, SnapshotSyncJournal>()
+    @Volatile var isSyncingFromRemote = false
     private var pushJob: Job? = null
     private var observeJob: Job? = null
+    internal var remote: CollectionSyncRemote = SupabaseCollectionSyncRemote
+
+    private fun journal(owner: AccountSyncOwner): SnapshotSyncJournal {
+        require(owner.userId.length <= 512 && owner.backendUrl.length <= 2048)
+        val ownerKey = JsonArray(listOf(JsonPrimitive(owner.backendUrl), JsonPrimitive(owner.userId), JsonPrimitive(owner.profileId)))
+            .toString().encodeToByteArray().joinToString("") { it.toUByte().toString(16).padStart(2, '0') }
+        return synchronized(journalLock) {
+            journals[ownerKey] ?: SnapshotSyncJournal(
+                read = { CollectionStorage.loadSyncJournal(ownerKey) },
+                write = { payload ->
+                    check(owner.matches(AuthRepository.state.value, ProfileRepository.activeProfileId)) { "Collection journal owner changed" }
+                    CollectionStorage.saveSyncJournal(ownerKey, payload)
+                }).also {
+                if (journals.size >= 24) journals.remove(journals.keys.first())
+                journals[ownerKey] = it
+            }
+        }
+    }
+
+    /** Called synchronously before publishing a local mutation; the journal survives a failed upload. */
+    internal fun recordLocalChange(previous: JsonArray, next: JsonArray): AccountSyncOwner? {
+        val owner = accountSyncOwner() ?: return null
+        if (previous != next) journal(owner).recordLocal(previous, next)
+        return owner
+    }
+
+    internal fun recoverLocalPayload(stored: String?): String? {
+        val owner = accountSyncOwner() ?: return stored
+        return try { journal(owner).pending()?.second?.toString() ?: stored }
+        catch (e: Exception) {
+            log.w { "Collection journal recovery deferred: ${e::class.simpleName}" }
+            stored // Preserve both documents; an unsupported journal is never rewritten.
+        }
+    }
 
     fun startObserving() {
         if (observeJob?.isActive == true) return
@@ -48,104 +67,68 @@ object CollectionSyncService {
 
     suspend fun pullFromServer(profileId: Int) {
         val owner = accountSyncOwner(profileId) ?: return
-        runCatching {
-            val params = buildJsonObject {
-                put("p_profile_id", profileId)
-            }
-            val result = SupabaseProvider.client.postgrest.rpc("sync_pull_collections", params)
-            owner.requireCurrent()
-            if (ProfileRepository.activeProfileId != profileId) return@runCatching
-            val blobs = result.decodeList<SupabaseCollectionBlob>()
-            val blob = blobs.firstOrNull()
+        syncMutex.withLock { reconcile(owner) }
+    }
 
-            if (blob == null) {
-                log.i { "pullFromServer — no remote collections found" }
-                return
-            }
-
-            val remoteCollectionsJson = if (blob.collectionsJson == JsonNull) {
-                JsonArray(emptyList())
-            } else {
-                blob.collectionsJson
-            }
-            val remoteJson = remoteCollectionsJson.toString()
-            val localJson = CollectionRepository.exportToJson()
-            if (ProfileRepository.activeProfileId != profileId) return@runCatching
-
-            if (remoteJson == localJson) {
-                log.d { "pullFromServer — remote matches local, no update needed" }
-                return
-            }
-
-            val remoteCollections = runCatching {
-                json.decodeFromString<List<Collection>>(remoteJson)
-            }.getOrNull()
-
-            if (remoteCollections != null) {
-                if (ProfileRepository.activeProfileId != profileId) return@runCatching
-                isSyncingFromRemote = true
-                CollectionRepository.applyFromRemote(remoteCollections, remoteCollectionsJson)
-                isSyncingFromRemote = false
-                log.i { "pullFromServer — applied ${remoteCollections.size} collections from remote" }
-            } else {
-                error("Invalid remote collections JSON")
-            }
-        }.onFailure { e ->
-            isSyncingFromRemote = false
-            if (e is CancellationException) throw e
-            log.e(e) { "pullFromServer — FAILED" }
-            throw e
+    private suspend fun reconcile(owner: AccountSyncOwner) {
+        owner.requireCurrent()
+        val blob = remote.pull(owner.profileId)
+        owner.requireCurrent()
+        check(blob == null || blob.profileId == owner.profileId) { "Collection response profile mismatch" }
+        val remoteSnapshot = when (val payload = blob?.collectionsJson) {
+            null, JsonNull -> JsonArray(emptyList())
+            is JsonArray -> payload
+            else -> error("Invalid remote collections JSON")
         }
+        val journal = journal(owner)
+        // A missing row is an unseeded account, not a remote deletion.
+        if (blob == null && journal.pending() == null) {
+            withContext(Dispatchers.Main) {
+                owner.requireCurrent()
+                val local = json.parseToJsonElement(CollectionRepository.exportToJson()).jsonArray
+                if (local.isNotEmpty()) journal.recordLocal(JsonArray(emptyList()), local)
+            }
+        }
+        val plan = journal.plan(remoteSnapshot)
+        val merged = json.decodeFromJsonElement<List<Collection>>(plan.merged)
+        val applied = withContext(Dispatchers.Main) {
+            owner.requireCurrent()
+            if (!journal.commitPull(plan)) return@withContext false
+            isSyncingFromRemote = true
+            try { CollectionRepository.applyFromRemote(merged, plan.merged) }
+            finally { isSyncingFromRemote = false }
+            true
+        }
+        check(applied) { "Collections changed during refresh; pending state retained" }
+        val pending = journal.pending() ?: return
+        owner.requireCurrent()
+        remote.push(owner.profileId, pending.second)
+        owner.requireCurrent()
+        journal.acknowledge(pending.first, pending.second)
+        log.d { "Collection reconciliation completed for profile=${owner.profileId}" }
     }
 
     fun triggerPush() {
         val owner = accountSyncOwner() ?: return
         pushJob?.cancel()
         pushJob = scope.launch {
-            val profileId = owner.profileId
             delay(500)
-            owner.requireCurrent()
-            if (ProfileRepository.activeProfileId != profileId) return@launch
-            if (isSyncingFromRemote) return@launch
-            val authState = AuthRepository.state.value
-            if (authState !is AuthState.Authenticated || authState.isAnonymous) return@launch
-            pushToRemote(profileId)
-        }
-    }
-
-    private suspend fun pushToRemote(profileId: Int) {
-        runCatching {
-            if (ProfileRepository.activeProfileId != profileId) return@runCatching
-            val collectionsJson = CollectionRepository.exportToJson()
-            if (ProfileRepository.activeProfileId != profileId) return@runCatching
-            val jsonElement = runCatching {
-                json.parseToJsonElement(collectionsJson)
-            }.getOrDefault(JsonArray(emptyList()))
-
-            val params = buildJsonObject {
-                put("p_profile_id", profileId)
-                put("p_collections_json", jsonElement)
-                putSyncOriginClientId()
-            }
-            SupabaseProvider.client.postgrest.rpc("sync_push_collections", params)
-            log.d { "pushToRemote — success" }
-        }.onFailure { e ->
-            log.e(e) { "pushToRemote — FAILED" }
+            try { owner.requireCurrent(); syncMutex.withLock { reconcile(owner) } }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { log.w { "Collection upload deferred: ${e::class.simpleName}" } }
         }
     }
 
     @OptIn(FlowPreview::class)
     private fun observeLocalChangesAndPush() {
         observeJob = scope.launch {
-            CollectionRepository.localChangeEvents
-                .debounce(PUSH_DEBOUNCE_MS)
-                .collect {
-                    val profileId = ProfileRepository.activeProfileId
-                    if (isSyncingFromRemote) return@collect
-                    val authState = AuthRepository.state.value
-                    if (authState !is AuthState.Authenticated || authState.isAnonymous) return@collect
-                    pushToRemote(profileId)
+            CollectionRepository.localSyncChanges.debounce(1500L).collect { owner ->
+                try { owner.requireCurrent(); syncMutex.withLock { reconcile(owner) } }
+                catch (e: CancellationException) {
+                    currentCoroutineContext().ensureActive() // A stale owner must not kill the observer.
                 }
+                catch (e: Exception) { log.w { "Collection upload deferred: ${e::class.simpleName}" } }
+            }
         }
     }
 }

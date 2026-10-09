@@ -1,6 +1,7 @@
 package com.nuvio.app.features.collection
 
 import co.touchlab.kermit.Logger
+import com.nuvio.app.core.sync.AccountSyncOwner
 import com.nuvio.app.features.addons.AddonRepository
 import com.nuvio.app.features.addons.ManagedAddon
 import com.nuvio.app.features.addons.enabledAddons
@@ -43,6 +44,8 @@ object CollectionRepository {
     val collections: StateFlow<List<Collection>> = _collections.asStateFlow()
     private val _localChangeEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     internal val localChangeEvents: SharedFlow<Unit> = _localChangeEvents.asSharedFlow()
+    private val _localSyncChanges = MutableSharedFlow<AccountSyncOwner>(extraBufferCapacity = 1)
+    internal val localSyncChanges: SharedFlow<AccountSyncOwner> = _localSyncChanges.asSharedFlow()
     private var rawCollectionsJson: JsonElement = JsonArray(emptyList())
 
     private var hasLoaded = false
@@ -50,7 +53,7 @@ object CollectionRepository {
     fun initialize() {
         if (hasLoaded) return
         hasLoaded = true
-        val payload = CollectionStorage.loadPayload()
+        val payload = CollectionSyncService.recoverLocalPayload(CollectionStorage.loadPayload())
         if (payload.isNullOrBlank()) return
 
         runCatching {
@@ -141,10 +144,12 @@ object CollectionRepository {
             if (!validation.valid) {
                 throw IllegalArgumentException(validation.error.orEmpty())
             }
+            ensureLoaded()
+            val previous = mergedCollectionsJson()
             rawCollectionsJson = json.parseToJsonElement(jsonString)
             val imported = json.decodeFromString<List<Collection>>(jsonString).deduplicatedById()
             _collections.value = CollectionMobileSettingsRepository.applyToCollections(imported)
-            persist()
+            persist(previousOverride = previous)
             imported
         }
     }
@@ -230,11 +235,15 @@ object CollectionRepository {
         if (!hasLoaded) initialize()
     }
 
-    private fun persist(sync: Boolean = true) {
+    private fun persist(sync: Boolean = true, previousOverride: JsonArray? = null) {
         runCatching {
-            CollectionStorage.savePayload(mergedCollectionsJson().toString())
+            val previous = previousOverride ?: rawCollectionsJson as? JsonArray ?: error("Invalid previous collections JSON")
+            val next = mergedCollectionsJson()
+            val owner = if (sync) CollectionSyncService.recordLocalChange(previous, next) else null
+            CollectionStorage.savePayload(next.toString())
             if (sync) {
                 _localChangeEvents.tryEmit(Unit)
+                if (owner != null) _localSyncChanges.tryEmit(owner)
             }
         }.onFailure { e ->
             log.e(e) { "Failed to persist collections" }

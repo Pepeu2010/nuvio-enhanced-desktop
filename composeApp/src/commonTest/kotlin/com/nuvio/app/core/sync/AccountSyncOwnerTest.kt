@@ -14,5 +14,6 @@ class AccountSyncOwnerTest {
         assertFalse(owner.matches(AuthState.Authenticated("account-a", null, true), 2))
         assertFalse(owner.matches(AuthState.Unauthenticated, 2))
         assertFalse(owner.matches(AuthState.Loading, 2))
+        assertFalse(owner.matches(AuthState.Authenticated("account-a", null, false), 2, "https://another.invalid"))
     }
 }
