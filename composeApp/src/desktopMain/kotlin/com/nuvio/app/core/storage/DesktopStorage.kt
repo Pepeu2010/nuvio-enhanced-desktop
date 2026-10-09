@@ -7,6 +7,8 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.AccessDeniedException
+import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.util.Comparator
 import java.util.Properties
 import kotlin.io.path.exists
@@ -55,6 +57,7 @@ internal object DesktopStorage {
 
     internal class Store(
         private val file: Path,
+        private val publish: (Path, Path) -> Unit = ::publishDesktopPreferenceFile,
     ) {
         private val lock = Any()
         private val properties = Properties()
@@ -116,18 +119,17 @@ internal object DesktopStorage {
             putString(key, json.encodeToString(values.toList()))
         }
 
-        fun remove(key: String) = synchronized(lock) {
-            ensureLoaded()
-            if (properties.remove(key) != null) persist()
-        }
+        fun remove(key: String) = putString(key, null)
 
         fun removeAll(keys: Iterable<String>) = synchronized(lock) {
             ensureLoaded()
-            var changed = false
-            keys.forEach { key ->
-                if (properties.remove(key) != null) changed = true
+            val removed = keys.mapNotNull { key -> properties.remove(key)?.let { key to it } }.toMap()
+            if (removed.isNotEmpty()) {
+                try { persist() } catch (error: Exception) {
+                    properties.putAll(removed)
+                    throw error
+                }
             }
-            if (changed) persist()
         }
 
         fun clearInMemory() = synchronized(lock) {
@@ -137,14 +139,15 @@ internal object DesktopStorage {
 
         private fun ensureLoaded() {
             if (loaded) return
-            loaded = true
-            properties.clear()
-            if (!file.exists()) return
-            runCatching {
+            val restored = Properties()
+            if (Files.exists(file, NOFOLLOW_LINKS)) {
                 Files.newInputStream(file).use { input ->
-                    properties.load(input)
+                    restored.load(input)
                 }
             }
+            properties.clear()
+            properties.putAll(restored)
+            loaded = true
         }
 
         private fun persist() {
@@ -152,14 +155,35 @@ internal object DesktopStorage {
             val pending = Files.createTempFile(file.parent, "telumia-preferences-", ".part")
             try {
                 Files.newOutputStream(pending).use { output -> properties.store(output, "Telumia desktop preferences") }
-                try {
-                    Files.move(pending, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-                } catch (_: AtomicMoveNotSupportedException) {
-                    Files.move(pending, file, StandardCopyOption.REPLACE_EXISTING)
-                }
+                publish(pending, file)
             } finally {
                 Files.deleteIfExists(pending)
             }
+        }
+    }
+}
+
+/** A Windows reader can briefly deny replacement. Keep the old file and bound the retry to 140 ms. */
+internal fun publishDesktopPreferenceFile(
+    pending: Path,
+    destination: Path,
+    move: (Path, Path, Boolean) -> Unit = { source, target, atomic ->
+        if (atomic) Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        else Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
+    },
+    pause: (Long) -> Unit = { Thread.sleep(it) },
+    retryAccessDenied: Boolean = System.getProperty("os.name").startsWith("Windows", ignoreCase = true),
+) {
+    var atomic = true
+    var retries = 0
+    while (true) {
+        try { move(pending, destination, atomic); return }
+        catch (unsupported: AtomicMoveNotSupportedException) {
+            if (!atomic) throw unsupported
+            atomic = false
+        } catch (denied: AccessDeniedException) {
+            if (!retryAccessDenied || retries >= 3 || !Files.isRegularFile(pending, NOFOLLOW_LINKS)) throw denied
+            pause(20L shl retries++)
         }
     }
 }

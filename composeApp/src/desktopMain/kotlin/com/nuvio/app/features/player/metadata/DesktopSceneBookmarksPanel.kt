@@ -40,6 +40,10 @@ internal fun DesktopSceneBookmarksPanel(
     val closeFocus = remember { FocusRequester() }
     val confirmFocus = remember { FocusRequester() }
     val writable = state.scope != null && !state.loading && !state.busy && !state.failed
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // Recreate the alpha Material3 style nodes when availability changes. Their style animation
+    // map crashes on disabled -> enabled after an error; retain the draft and scroll outside it.
+    key(writable) {
     Surface(Modifier.fillMaxSize().testTag("scene-bookmarks-panel").onPreviewKeyEvent {
         if (it.type == KeyEventType.KeyDown && it.key == Key.Escape) { onDismiss(); true } else false
     }, color = MaterialTheme.colorScheme.surface) {
@@ -84,6 +88,7 @@ internal fun DesktopSceneBookmarksPanel(
                 state.items.isEmpty() -> Text(stringResource(Res.string.scene_bookmarks_empty))
             }
             LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("scene-bookmark-list"),
+                state = listState,
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(state.items, key = { it.id }) { item ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -116,6 +121,7 @@ internal fun DesktopSceneBookmarksPanel(
                 }
             }
         }
+    }
     }
     LaunchedEffect(state.items, state.busy, state.failed, pendingRename) {
         val pending = pendingRename
