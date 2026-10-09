@@ -1419,7 +1419,8 @@ internal fun PlayerControlsState.toControlsJson(isFullscreen: Boolean): String =
         append(',')
         appendJsonField("navigationMotion", motionPolicy.mode.name)
         append(',')
-        appendJsonField("animationIntensity", motionPolicy.intensity.fraction)
+        // This closed enum can exceed 1; the Float helper intentionally normalizes volume/progress.
+        append("\"animationIntensity\":").append(motionPolicy.intensity.fraction)
         append(',')
         appendJsonField("motionFastMillis", motionPolicy.durationMillis(120))
         append(',')
