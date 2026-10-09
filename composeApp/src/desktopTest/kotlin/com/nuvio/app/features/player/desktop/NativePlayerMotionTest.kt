@@ -9,16 +9,19 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 class NativePlayerMotionTest {
     @Test fun profileMotionCrossesTheActualControlsBridgeWithoutChangingPlaybackFields() {
         for (mode in NavigationMotion.entries) for (intensity in AnimationIntensity.entries) {
             val policy = UiMotionPolicy(mode, intensity)
-            val fields = Json.parseToJsonElement(PlayerControlsState(
+            val controlsJson = PlayerControlsState(
                 title = "Áudio e ação 🎬", audioLabel = "Áudio", volumeLevel = 0.75f,
                 skipPromptVisible = true, skipPromptEndMs = 12000L,
                 motionPolicy = policy,
-            ).toControlsJson(isFullscreen = true)).jsonObject
+            ).toControlsJson(isFullscreen = true)
+            assertFalse(controlsJson.any { it.code in 0xD800..0xDFFF })
+            val fields = Json.parseToJsonElement(controlsJson).jsonObject
             assertEquals(mode.name, fields.getValue("navigationMotion").jsonPrimitive.content)
             assertEquals(intensity.fraction, fields.getValue("animationIntensity").jsonPrimitive.content.toFloat())
             for ((name, base) in listOf("motionFastMillis" to 120, "motionStandardMillis" to 180, "motionPanelMillis" to 220)) {

@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -28,6 +29,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogWindow
+import androidx.compose.ui.window.rememberDialogState
+import com.nuvio.app.core.auth.AuthRepository
+import com.nuvio.app.core.storage.DesktopStorage
+import com.nuvio.app.features.profiles.ProfileRepository
+import com.nuvio.app.features.profiles.ProfileStudioAvatars
+import com.nuvio.app.features.player.metadata.*
 import com.nuvio.app.core.ui.AppPresenceState
 import com.nuvio.app.core.ui.LocalNuvioPlatformDensity
 import com.nuvio.app.core.ui.PresenceSnapshot
@@ -38,6 +46,7 @@ import com.nuvio.app.features.player.desktop.NativePlayerHost
 import com.nuvio.app.features.player.desktop.desktopFullscreenChanges
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.MutableStateFlow
 
 @Composable
 actual fun PlatformPlayerSurface(
@@ -132,7 +141,37 @@ private fun NativePlayerSurface(
     val latestOnPlayerControlsScrubFinished = rememberUpdatedState(onPlayerControlsScrubFinished)
     val latestOnInitialPositionHandled = rememberUpdatedState(onInitialPositionHandled)
     val latestOnError = rememberUpdatedState(onError)
-    val latestPlayerControlsState = rememberUpdatedState(playerControlsState)
+    val bookmarkJobs = rememberCoroutineScope()
+    val bookmarkScopes = remember { MutableStateFlow<SceneBookmarkScope?>(null) }
+    val bookmarkDialogOpen = remember { mutableStateOf(false) }
+    val bookmarkPosition = remember { mutableStateOf(PlayerPlaybackSnapshot()) }
+    val profileState by ProfileRepository.state.collectAsState()
+    val authState by AuthRepository.state.collectAsState()
+    val metadata = playerControlsState.metadataScope
+    val requestedBookmarkScope = remember(authState, profileState.activeProfile, metadata, sourceUrl, sourceAvailable) {
+        val owner = profileState.activeProfile?.let { ProfileStudioAvatars.scope(it, authState) }
+        if (owner == null || metadata == null || !sourceAvailable || sourceUrl.isBlank() || sourceUrl.length > 16384) null
+        else runCatching { SceneBookmarkScope(owner, metadata.mediaId, metadata.mediaType, metadata.videoId,
+            SceneBookmarkScope.sourceEdition(sourceUrl)) }.getOrNull()
+    }
+    val bookmarks = remember(controller) { PlayerSceneBookmarksDesktop(
+        SceneBookmarkStore(DesktopStorage.rootDir.resolve("scene-bookmarks-v1")), bookmarkScopes, bookmarkJobs,
+        playback = controller::snapshot, seek = controller::seekTo,
+    ) }
+    val latestBookmarkScope = rememberUpdatedState(requestedBookmarkScope)
+    val bookmarkState by bookmarks.state.collectAsState()
+    val visibleBookmarkState = bookmarkState.takeIf { it.scope == requestedBookmarkScope }
+        ?: DesktopSceneBookmarkPanelState(requestedBookmarkScope, loading = requestedBookmarkScope != null)
+    SideEffect { bookmarkScopes.value = requestedBookmarkScope }
+    LaunchedEffect(requestedBookmarkScope) { bookmarkDialogOpen.value = false }
+    val mergedControls = playerControlsState.copy(
+        showSceneBookmarks = requestedBookmarkScope != null,
+        timedMarkers = (playerControlsState.timedMarkers +
+            if (bookmarkState.scope == requestedBookmarkScope && requestedBookmarkScope != null)
+                bookmarks.markers(playerControlsState.durationMs) else emptyList())
+            .take(MAX_TIMELINE_MARKERS),
+    )
+    val latestMergedControls = rememberUpdatedState(mergedControls)
     val playerSettings by PlayerSettingsRepository.uiState.collectAsState()
     val decoderPriority = playerSettings.decoderPriority
     val nvidiaRtxSuperResolutionEnabled = playerSettings.nvidiaRtxSuperResolutionEnabled
@@ -167,7 +206,13 @@ private fun NativePlayerSurface(
     LaunchedEffect(controller) {
         controller.setControlCallbacks(
             onAction = { action -> latestOnPlayerControlsAction.value(action) },
-            onEvent = { type, value -> latestOnPlayerControlsEvent.value(type, value) },
+            onEvent = { type, value ->
+                if (type == "sceneBookmarks" && latestBookmarkScope.value != null &&
+                    bookmarkScopes.value == latestBookmarkScope.value && !DesktopPlayerPictureInPicture.isEnabled) {
+                    bookmarkDialogOpen.value = true
+                    true
+                } else latestOnPlayerControlsEvent.value(type, value)
+            },
             onScrubChange = { positionMs -> latestOnPlayerControlsScrubChange.value(positionMs) },
             onScrubFinished = { positionMs -> latestOnPlayerControlsScrubFinished.value(positionMs) },
         )
@@ -233,14 +278,14 @@ private fun NativePlayerSurface(
         controller.setResizeMode(resizeMode)
     }
 
-    LaunchedEffect(controller, playerControlsState) {
-        controller.updateControls(playerControlsState)
+    LaunchedEffect(controller, mergedControls) {
+        controller.updateControls(mergedControls)
         DesktopPlayerPictureInPicture.setWindowTitle(playerControlsState.pipWindowTitle)
     }
 
     LaunchedEffect(controller) {
         DesktopPlayerPictureInPicture.changes.drop(1).collect {
-            controller.updateControls(latestPlayerControlsState.value)
+            controller.updateControls(latestMergedControls.value)
         }
     }
 
@@ -259,13 +304,28 @@ private fun NativePlayerSurface(
 
     LaunchedEffect(controller) {
         while (true) {
-            onSnapshot(controller.snapshot())
+            val point = controller.snapshot()
+            bookmarkPosition.value = point
+            onSnapshot(point)
             delay(500L)
         }
     }
 
     val pipChanges by DesktopPlayerPictureInPicture.changes.collectAsState()
     val isInPip = pipChanges >= 0 && DesktopPlayerPictureInPicture.isEnabled
+
+    if (bookmarkDialogOpen.value && !isInPip) {
+        val closeBookmarks = {
+            bookmarkDialogOpen.value = false
+            controller.requestKeyboardFocus()
+        }
+        DialogWindow(onCloseRequest = closeBookmarks, title = playerControlsState.sceneBookmarksLabel,
+            state = rememberDialogState(width = 740.dp, height = 600.dp)) {
+            DesktopSceneBookmarksPanel(visibleBookmarkState, bookmarkPosition.value.positionMs,
+                bookmarks.canSave(bookmarkPosition.value), onSave = bookmarks::save, onRename = bookmarks::rename,
+                onRemove = bookmarks::remove, onJump = bookmarks::jump, onRetry = bookmarks::retry, onDismiss = closeBookmarks)
+        }
+    }
 
     Box(
         modifier = modifier

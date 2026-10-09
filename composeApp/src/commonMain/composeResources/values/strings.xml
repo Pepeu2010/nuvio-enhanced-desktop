@@ -1,4 +1,23 @@
 <resources>
+    <string name="scene_bookmarks_seek_unavailable">This moment is unavailable in the current playback. Wait for loading to finish or choose a compatible source.</string>
+    <string name="scene_bookmarks_title">Saved moments</string>
+    <string name="scene_bookmarks_other_source">Saved with another source</string>
+    <string name="scene_bookmarks_confirm_notice">This moment was saved with another source. Confirm it uses the same cut before applying its timestamp.</string>
+    <string name="scene_bookmarks_confirm">Use this timestamp</string>
+    <string name="scene_bookmarks_cancel_jump">Keep watching here</string>
+    <string name="scene_bookmarks_scope_notice">Saved on this device for this profile, episode and source. Another cut may use different timestamps.</string>
+    <string name="scene_bookmarks_name">Moment name</string>
+    <string name="scene_bookmarks_default_name">Favorite scene</string>
+    <string name="scene_bookmarks_save">Save %1$s</string>
+    <string name="scene_bookmarks_rename">Rename</string>
+    <string name="scene_bookmarks_remove">Remove</string>
+    <string name="scene_bookmarks_loading">Updating saved moments…</string>
+    <string name="scene_bookmarks_error">Could not read or save moments. Your existing data was preserved.</string>
+    <string name="scene_bookmarks_retry">Retry</string>
+    <string name="scene_bookmarks_unavailable">Wait for the profile and content to become available.</string>
+    <string name="scene_bookmarks_empty">Save a scene to return to it later, even offline.</string>
+    <string name="scene_bookmarks_cancel">Cancel rename</string>
+    <string name="scene_bookmarks_close">Close</string>
     <string name="theme_gold">Gold</string>
     <string name="theme_jade">Jade</string>
     <string name="theme_rose_gold">Rose Gold</string>

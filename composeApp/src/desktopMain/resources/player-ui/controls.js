@@ -257,6 +257,8 @@ let state = {
   motionFastMillis: 120,
   motionStandardMillis: 180,
   motionPanelMillis: 220,
+  showSceneBookmarks: false,
+  sceneBookmarksLabel: "Saved moments",
   themeAccentGradientColors: [],
   themeAccentStrongColor: "#3c7bff",
   themeOnAccentColor: "#fff",
@@ -2337,6 +2339,9 @@ const renderChrome = () => {
   setActionButtonLabel("speed", state.playbackSpeedLabel || "1x");
   setActionButtonLabel("subtitles", state.subtitlesLabel || "Subs");
   setActionButtonLabel("audio", state.audioLabel || "Audio");
+  const bookmarkButton = document.querySelector('[data-command="sceneBookmarks"]');
+  bookmarkButton.hidden = !state.showSceneBookmarks;
+  setActionButtonLabel("sceneBookmarks", state.sceneBookmarksLabel || "Saved moments");
   setActionButtonLabel("sources", state.sourcesLabel || "Sources");
   setActionButtonLabel("episodes", state.episodesLabel || "Episodes");
   if (pipButton) {
@@ -2743,6 +2748,10 @@ document.querySelectorAll("[data-command]").forEach(button => {
     }
     if (command === "speed") {
       openPlayerModal("speed");
+      return;
+    }
+    if (command === "sceneBookmarks") {
+      if (state.showSceneBookmarks && !state.isInPip) send("sceneBookmarks", 0);
       return;
     }
     if (command === "sources") {
@@ -3675,6 +3684,11 @@ document.addEventListener("keydown", event => {
     }
   }
 
+  if (event.code === "KeyD" && !activeModal && state.showSceneBookmarks && !state.isInPip) {
+    event.preventDefault();
+    send("sceneBookmarks", 0);
+    return;
+  }
   if (event.code === "Backquote") {
     event.preventDefault();
     if (activeModal === "speed") closePlayerModal(true);

@@ -1,4 +1,23 @@
 <resources>
+    <string name="scene_bookmarks_seek_unavailable">Este momento está indisponível na reprodução atual. Aguarde o carregamento ou escolha uma fonte compatível.</string>
+    <string name="scene_bookmarks_title">Momentos salvos</string>
+    <string name="scene_bookmarks_other_source">Salvo em outra fonte</string>
+    <string name="scene_bookmarks_confirm_notice">Este momento foi salvo em outra fonte. Confirme que é o mesmo corte antes de usar seu timestamp.</string>
+    <string name="scene_bookmarks_confirm">Usar este timestamp</string>
+    <string name="scene_bookmarks_cancel_jump">Continuar daqui</string>
+    <string name="scene_bookmarks_scope_notice">Salvos neste aparelho para este perfil, episódio e fonte. Outro corte pode ter timestamps diferentes.</string>
+    <string name="scene_bookmarks_name">Nome do momento</string>
+    <string name="scene_bookmarks_default_name">Cena favorita</string>
+    <string name="scene_bookmarks_save">Salvar %1$s</string>
+    <string name="scene_bookmarks_rename">Renomear</string>
+    <string name="scene_bookmarks_remove">Remover</string>
+    <string name="scene_bookmarks_loading">Atualizando momentos salvos…</string>
+    <string name="scene_bookmarks_error">Não foi possível ler ou salvar. Os dados existentes foram preservados.</string>
+    <string name="scene_bookmarks_retry">Tentar novamente</string>
+    <string name="scene_bookmarks_unavailable">Aguarde a disponibilidade do perfil e do conteúdo.</string>
+    <string name="scene_bookmarks_empty">Salve uma cena para voltar a ela depois, mesmo offline.</string>
+    <string name="scene_bookmarks_cancel">Cancelar edição</string>
+    <string name="scene_bookmarks_close">Fechar</string>
     <string name="about_licenses_attributions_subtitle">Fontes de dados, agradecimentos e licenças da plataforma</string>
     <string name="about_supporters_contributors_subtitle">Reconhecimento público e créditos do projeto</string>
     <string name="action_back">Voltar</string>

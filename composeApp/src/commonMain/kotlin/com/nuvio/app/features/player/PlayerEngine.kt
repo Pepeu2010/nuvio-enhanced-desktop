@@ -257,6 +257,9 @@ data class PlayerControlsState(
     val notificationMessage: String = "",
     val notificationToken: Long = 0L,
     val motionPolicy: com.nuvio.app.core.ui.UiMotionPolicy = com.nuvio.app.core.ui.UiMotionPolicy(),
+    val metadataScope: com.nuvio.app.features.player.metadata.TimedMetadataScope? = null,
+    val showSceneBookmarks: Boolean = false,
+    val sceneBookmarksLabel: String = "Saved moments",
 )
 
 data class PlayerControlFilterItem(

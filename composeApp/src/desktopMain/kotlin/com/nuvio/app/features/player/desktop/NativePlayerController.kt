@@ -1422,6 +1422,10 @@ internal fun PlayerControlsState.toControlsJson(isFullscreen: Boolean): String =
         // This closed enum can exceed 1; the Float helper intentionally normalizes volume/progress.
         append("\"animationIntensity\":").append(motionPolicy.intensity.fraction)
         append(',')
+        appendJsonField("showSceneBookmarks", showSceneBookmarks)
+        append(',')
+        appendJsonField("sceneBookmarksLabel", sceneBookmarksLabel)
+        append(',')
         appendJsonField("motionFastMillis", motionPolicy.durationMillis(120))
         append(',')
         appendJsonField("motionStandardMillis", motionPolicy.durationMillis(180))
@@ -1881,7 +1885,8 @@ private fun String.toJsonString(): String =
                 '\r' -> append("\\r")
                 '\t' -> append("\\t")
                 else -> {
-                    if (char.code < 0x20) {
+                    // ASCII surrogate escapes survive JNI implementations using modified UTF-8.
+                    if (char.code < 0x20 || char.code in 0xD800..0xDFFF) {
                         append("\\u")
                         append(char.code.toString(16).padStart(4, '0'))
                     } else {
