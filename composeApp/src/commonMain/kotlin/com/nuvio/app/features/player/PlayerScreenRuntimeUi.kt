@@ -247,6 +247,7 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi() {
         com.nuvio.app.features.player.metadata.TimedMetadataScope(parentMetaId, parentMetaType, activeVideoId ?: parentMetaId),
         skipIntervals, playbackSnapshot.durationMs)
     val playerControlsState = PlayerControlsState(
+        motionPolicy = com.nuvio.app.core.ui.LocalUiMotion.current,
         timedMarkers = timedMarkers,
         title = title,
         episodeText = episodeText,

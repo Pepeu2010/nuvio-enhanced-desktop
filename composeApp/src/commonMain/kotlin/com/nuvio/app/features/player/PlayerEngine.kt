@@ -256,6 +256,7 @@ data class PlayerControlsState(
     val submitIntroSuccessToken: Long = 0L,
     val notificationMessage: String = "",
     val notificationToken: Long = 0L,
+    val motionPolicy: com.nuvio.app.core.ui.UiMotionPolicy = com.nuvio.app.core.ui.UiMotionPolicy(),
 )
 
 data class PlayerControlFilterItem(

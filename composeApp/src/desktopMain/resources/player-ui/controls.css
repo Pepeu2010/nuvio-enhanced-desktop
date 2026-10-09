@@ -22,6 +22,7 @@
   --motion-fast: 120ms;
   --motion-standard: 180ms;
   --motion-panel: 220ms;
+  --motion-hover-scale: 1.03;
   --ease-out: cubic-bezier(.2, .8, .2, 1);
   --theme-accent: #2f6fed;
   --theme-accent-strong: #3c7bff;
@@ -1854,7 +1855,7 @@ button:disabled {
 
   .action:hover {
     background: var(--theme-selected-surface-hover);
-    transform: translateZ(0) scale(1.04);
+    transform: translateZ(0) scale(var(--motion-hover-scale));
   }
 
   .action.focused {
@@ -1866,7 +1867,7 @@ button:disabled {
 
   .action.focused:hover {
     background: var(--theme-selected-surface-hover);
-    transform: translateZ(0) scale(1.04);
+    transform: translateZ(0) scale(var(--motion-hover-scale));
   }
 
   .action.focused svg {
@@ -1883,7 +1884,7 @@ button:disabled {
   .action.playback-action.focused:hover {
     background: var(--theme-accent-strong);
     color: var(--theme-on-accent);
-    transform: translateZ(0) scale(1.04);
+    transform: translateZ(0) scale(var(--motion-hover-scale));
   }
 
   .action:active,
@@ -3433,9 +3434,47 @@ button.action:focus-visible {
   .sync-cue,
   .track-row,
   .segment-button {
-    transition-duration: 1ms;
-    animation-duration: 1ms;
+    transition-duration: var(--motion-fast);
+    animation: none !important;
   }
+}
+
+/* Effective profile/OS policy is supplied by the existing player controls bridge. */
+.player:is([data-navigation-motion="reduced"], [data-navigation-motion="off"]) *,
+.player:is([data-navigation-motion="reduced"], [data-navigation-motion="off"]) *::before,
+.player:is([data-navigation-motion="reduced"], [data-navigation-motion="off"]) *::after {
+  animation: none !important;
+}
+
+.player[data-navigation-motion="off"] *,
+.player[data-navigation-motion="off"] *::before,
+.player[data-navigation-motion="off"] *::after {
+  transition-duration: 0ms !important;
+}
+
+.player[data-navigation-motion="reduced"] *:not(.skip-progress-fill):not(.opening-progress-bar) {
+  transition-duration: var(--motion-fast) !important;
+}
+
+/* Keep centering/virtual-list transforms intact; remove only presentation movement. */
+.player:is([data-navigation-motion="reduced"], [data-navigation-motion="off"])
+  :is(.track-panel, .player-side-panel, .opening-artwork, .opening-logo,
+      .parental-guide-row, .parental-guide-line, .pause-logo, .next-episode-card,
+      .action, .header-button, .side-control, .play-control) {
+  transform: none !important;
+}
+
+.player[data-navigation-motion="reduced"] :is(.modal-layer, .track-panel, .player-side-panel) {
+  transition-property: opacity;
+  transition-duration: var(--motion-panel);
+}
+
+.player:is([data-navigation-motion="reduced"], [data-navigation-motion="off"]) .center-status {
+  transform: translate(-50%, calc(-50% - var(--center-lift))) !important;
+}
+
+.player:is([data-navigation-motion="reduced"], [data-navigation-motion="off"]) .player-toast {
+  transform: translateX(-50%) !important;
 }
 
 svg {

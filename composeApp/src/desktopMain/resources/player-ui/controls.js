@@ -252,6 +252,11 @@ let state = {
   onLabel: "On",
   offLabel: "Off",
   themeAccentColor: "#2f6fed",
+  navigationMotion: "FULL",
+  animationIntensity: 1,
+  motionFastMillis: 120,
+  motionStandardMillis: 180,
+  motionPanelMillis: 220,
   themeAccentGradientColors: [],
   themeAccentStrongColor: "#3c7bff",
   themeOnAccentColor: "#fff",
@@ -454,7 +459,7 @@ const setPipLocked = locked => {
 };
 const prefersReducedMotion = window.matchMedia &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const modalTransitionMs = prefersReducedMotion ? 1 : 240;
+let modalTransitionMs = prefersReducedMotion ? 120 : 240;
 const chromeAutoHideDelayMs = 3500;
 const chromeActivityThrottleMs = 300;
 const hiddenCursorHideDelayMs = 3000;
@@ -669,6 +674,18 @@ const runParentalGuideAnimation = async (warnings, key, runId) => {
   renderParentalGuideRows(warnings);
   parentalGuide.setAttribute("aria-hidden", "false");
   root.classList.add("parental-visible");
+  if (root.dataset.navigationMotion !== "full") {
+    // Preserve reading time, without stagger, travel, repeated flashes or exit choreography.
+    root.classList.add("parental-line-visible");
+    parentalGuideList.querySelectorAll(".parental-guide-row").forEach(row => row.classList.add("visible"));
+    await new Promise(resolve => window.setTimeout(resolve, 5000));
+    if (runId !== parentalGuideRunId) return;
+    root.classList.remove("parental-line-visible", "parental-visible");
+    parentalGuide.setAttribute("aria-hidden", "true");
+    parentalGuideCompletedKey = key;
+    send("parentalGuideComplete", 0);
+    return;
+  }
   await animationDelay(300);
   if (runId !== parentalGuideRunId) return;
 
@@ -785,6 +802,32 @@ const formatTime = milliseconds => {
     : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 };
 
+const motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
+const applyMotion = () => {
+  const requested = ["FULL", "REDUCED", "OFF"].includes(state.navigationMotion) ? state.navigationMotion : "FULL";
+  const mode = requested === "OFF" ? "off" : (requested === "REDUCED" || motionMedia.matches ? "reduced" : "full");
+  const previous = root.dataset.navigationMotion;
+  if (previous !== mode) {
+    root.dataset.navigationMotion = mode;
+    // Invalidate the old warning choreography; renderChrome restarts it under the new policy.
+    parentalGuideRunId += 1;
+    parentalGuideStartedKey = "";
+  }
+  const intensity = Number.isFinite(state.animationIntensity) ? Math.min(1.25, Math.max(0.65, state.animationIntensity)) : 1;
+  const duration = (value, fallback) => {
+    const bounded = Number.isFinite(value) ? Math.min(500, Math.max(0, value)) : fallback;
+    return mode === "off" ? 0 : mode === "reduced" ? Math.min(120, bounded) : bounded;
+  };
+  const set = (name, value) => {
+    if (root.style.getPropertyValue(name) !== value) root.style.setProperty(name, value);
+  };
+  set("--motion-fast", `${duration(state.motionFastMillis, 120)}ms`);
+  set("--motion-standard", `${duration(state.motionStandardMillis, 180)}ms`);
+  set("--motion-panel", `${duration(state.motionPanelMillis, 220)}ms`);
+  set("--motion-hover-scale", String(mode === "full" ? 1 + 0.03 * intensity : 1));
+  modalTransitionMs = duration(state.motionPanelMillis, 220);
+};
+
 const setProgress = (positionMs, durationMs) => {
   const percent = durationMs > 0 ? Math.max(0, Math.min(100, positionMs / durationMs * 100)) : 0;
   seek.value = Math.round(percent * 10);
@@ -884,7 +927,7 @@ const syncPauseMetadataTimer = showOpening => {
     pauseMetadataTimer = 0;
     pauseMetadataReady = true;
     renderChrome();
-  }, prefersReducedMotion ? 1 : 5000);
+  }, 5000);
 };
 
 const renderPauseMetadataOverlay = showOpening => {
@@ -941,6 +984,7 @@ const modalElements = Object.values(modalByName);
 const modalCloseTimers = new Map();
 
 const setModalVisibility = (modal, visible, animated = true) => {
+  animated = animated && modalTransitionMs > 0;
   const pendingTimer = modalCloseTimers.get(modal);
   if (pendingTimer) {
     window.clearTimeout(pendingTimer);
@@ -950,6 +994,10 @@ const setModalVisibility = (modal, visible, animated = true) => {
     modal.dataset.modalState = "open";
     modal.hidden = false;
     modal.classList.remove("modal-closing");
+    if (!animated) {
+      modal.classList.add("modal-visible");
+      return;
+    }
     window.requestAnimationFrame(() => {
       if (modal.dataset.modalState === "open") {
         modal.classList.add("modal-visible");
@@ -2040,7 +2088,7 @@ const startSkipPromptAutoHide = () => {
   skipPromptProgress.style.width = "0%";
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
-      skipPromptProgress.style.transition = `width ${prefersReducedMotion ? 1 : 10000}ms linear`;
+      skipPromptProgress.style.transition = "width 10000ms linear";
       skipPromptProgress.style.width = "100%";
     });
   });
@@ -2048,7 +2096,7 @@ const startSkipPromptAutoHide = () => {
     skipPromptAutoHideActive = false;
     skipPromptAutoHidden = true;
     renderNativePlaybackPrompts();
-  }, prefersReducedMotion ? 1 : 10000);
+  }, 10000);
 };
 
 const syncSkipPromptPlacement = showSkip => {
@@ -2345,11 +2393,19 @@ const renderTimedMarkers = TelumiaTimedMetadata.createRenderer(
   document.getElementById("timedMarkers"), document.getElementById("timedMarkersSummary"), document.getElementById("seek"));
 
 const render = () => {
+  applyMotion();
   renderTimedMarkers(state.durationMs > 0 ? state.timedMarkers : []);
   applyTheme();
   renderChrome();
   renderActiveModal();
 };
+
+motionMedia.addEventListener("change", render);
+window.addEventListener("pagehide", () => {
+  motionMedia.removeEventListener("change", render);
+  parentalGuideRunId += 1;
+});
+window.addEventListener("pageshow", () => motionMedia.addEventListener("change", render));
 
 const focusShortcutRoot = () => {
   if (document.activeElement !== root) {
@@ -3072,6 +3128,8 @@ window.playerControls = nextState => {
     isPlaying: currentPlaybackState,
     volumeLevel: currentVolumeLevel ?? nextState.volumeLevel,
   };
+  // Apply the policy before this update can open or close a modal.
+  applyMotion();
   if (typeof state.volumeLevel === "number" && state.volumeLevel > 0) {
     preMuteVolumeLevel = state.volumeLevel;
   }
