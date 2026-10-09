@@ -26,6 +26,14 @@ import platform.Foundation.NSUserDefaults
 actual object AddonStorage {
     private const val addonUrlsKey = "installed_manifest_urls"
     private const val addonEnabledStatesKey = "installed_manifest_enabled_states"
+    actual fun loadSyncSnapshot(profileId: Int): String? = NSUserDefaults.standardUserDefaults.stringForKey("addon-sync-snapshot-v1-$profileId")
+    actual fun saveSyncSnapshot(profileId: Int, payload: String) {
+        NSUserDefaults.standardUserDefaults.setObject(payload, forKey = "addon-sync-snapshot-v1-$profileId")
+    }
+    actual fun loadSyncJournal(ownerKey: String): String? = NSUserDefaults.standardUserDefaults.stringForKey("addon-sync-journal-v1-$ownerKey")
+    actual fun saveSyncJournal(ownerKey: String, payload: String) {
+        NSUserDefaults.standardUserDefaults.setObject(payload, forKey = "addon-sync-journal-v1-$ownerKey")
+    }
 
     actual fun loadInstalledAddonUrls(profileId: Int): List<String> =
         NSUserDefaults.standardUserDefaults

@@ -33,6 +33,14 @@ actual object AddonStorage {
     private const val addonEnabledStatesKey = "installed_manifest_enabled_states"
 
     private var preferences: SharedPreferences? = null
+    actual fun loadSyncSnapshot(profileId: Int): String? = preferences?.getString("sync_snapshot_v1_$profileId", null)
+    actual fun saveSyncSnapshot(profileId: Int, payload: String) {
+        check(checkNotNull(preferences).edit().putString("sync_snapshot_v1_$profileId", payload).commit())
+    }
+    actual fun loadSyncJournal(ownerKey: String): String? = preferences?.getString("sync_journal_v1_$ownerKey", null)
+    actual fun saveSyncJournal(ownerKey: String, payload: String) {
+        check(checkNotNull(preferences).edit().putString("sync_journal_v1_$ownerKey", payload).commit())
+    }
 
     fun initialize(context: Context) {
         preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)

@@ -5,6 +5,10 @@ internal expect object AddonStorage {
     fun saveInstalledAddonUrls(profileId: Int, urls: List<String>)
     fun loadAddonEnabledStates(profileId: Int): Map<String, Boolean>
     fun saveAddonEnabledStates(profileId: Int, states: Map<String, Boolean>)
+    fun loadSyncSnapshot(profileId: Int): String?
+    fun saveSyncSnapshot(profileId: Int, payload: String)
+    fun loadSyncJournal(ownerKey: String): String?
+    fun saveSyncJournal(ownerKey: String, payload: String)
 }
 
 data class RawHttpResponse(

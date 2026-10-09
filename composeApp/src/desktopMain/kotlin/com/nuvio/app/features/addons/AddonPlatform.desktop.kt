@@ -23,6 +23,10 @@ import java.util.concurrent.TimeUnit
 internal actual object AddonStorage {
     private val store = DesktopStorage.store("nuvio_addons")
     private val json = Json { ignoreUnknownKeys = true }
+    actual fun loadSyncSnapshot(profileId: Int): String? = store.getString("sync_snapshot_v1_$profileId")
+    actual fun saveSyncSnapshot(profileId: Int, payload: String) { store.putString("sync_snapshot_v1_$profileId", payload) }
+    actual fun loadSyncJournal(ownerKey: String): String? = store.getString("sync_journal_v1_$ownerKey")
+    actual fun saveSyncJournal(ownerKey: String, payload: String) { store.putString("sync_journal_v1_$ownerKey", payload) }
 
     actual fun loadInstalledAddonUrls(profileId: Int): List<String> =
         store.getString("installed_addon_urls_$profileId")

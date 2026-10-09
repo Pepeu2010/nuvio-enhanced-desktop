@@ -2,13 +2,10 @@ package com.nuvio.app.features.addons
 
 import co.touchlab.kermit.Logger
 import com.nuvio.app.core.diagnostics.redactDiagnosticText
-import com.nuvio.app.core.network.SupabaseProvider
-import com.nuvio.app.core.sync.putSyncOriginClientId
+import com.nuvio.app.core.auth.AuthRepository
+import com.nuvio.app.core.network.ServerConfigurationRepository
 import com.nuvio.app.core.sync.accountSyncOwner
 import com.nuvio.app.features.profiles.ProfileRepository
-import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.postgrest.query.Order
-import io.github.jan.supabase.postgrest.rpc
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -23,30 +20,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.put
+import kotlinx.serialization.json.*
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
-
-@Serializable
-private data class AddonRow(
-    val url: String,
-    val name: String? = null,
-    val enabled: Boolean = true,
-    @SerialName("sort_order") val sortOrder: Int = 0,
-)
-
-@Serializable
-private data class AddonPushItem(
-    val url: String,
-    val name: String = "",
-    val enabled: Boolean = true,
-    @SerialName("sort_order") val sortOrder: Int = 0,
-)
 
 private const val ADDON_PUSH_DEBOUNCE_MS = 500L
 
@@ -61,6 +37,7 @@ object AddonRepository {
     private var currentProfileId: Int = 1
     private val activeRefreshJobs = mutableMapOf<String, Job>()
     private val pushJobsByProfile = mutableMapOf<Int, Job>()
+    private var rawSyncSnapshot = JsonArray(emptyList())
 
     fun initialize() {
         val effectiveProfileId = resolveEffectiveProfileId(ProfileRepository.activeProfileId)
@@ -69,8 +46,15 @@ object AddonRepository {
         currentProfileId = effectiveProfileId
         log.d { "initialize() — loading local addons for profile $currentProfileId" }
 
-        val storedUrls = dedupeManifestUrls(AddonStorage.loadInstalledAddonUrls(currentProfileId))
-        val enabledByUrl = loadLocalEnabledStates()
+        val legacyUrls = dedupeManifestUrls(AddonStorage.loadInstalledAddonUrls(currentProfileId))
+        val legacyEnabled = loadLocalEnabledStates()
+        val fallback = AddonStorage.loadSyncSnapshot(currentProfileId)?.let { json.parseToJsonElement(it).jsonArray }
+            ?: JsonArray(legacyUrls.mapIndexed { index, url -> buildJsonObject {
+                put("url", url); put("name", ""); put("enabled", legacyEnabled[url] ?: true); put("sort_order", index)
+            } })
+        rawSyncSnapshot = normalizedAddonSnapshot(AddonSyncCoordinator.recover(currentProfileId, fallback))
+        val rows = rawSyncSnapshot.associate { it.jsonObject["url"]!!.jsonPrimitive.content to it.jsonObject }
+        val storedUrls = rows.keys.toList()
         log.d { "initialize() — local addon count: ${storedUrls.size}" }
         if (storedUrls.isEmpty()) return
 
@@ -79,7 +63,8 @@ object AddonRepository {
             addons = storedUrls.map { manifestUrl ->
                 existingByUrl[manifestUrl].toPendingAddon(
                     manifestUrl = manifestUrl,
-                    enabled = enabledByUrl[manifestUrl],
+                    userSetName = rows[manifestUrl]!!["name"]!!.jsonPrimitive.content.takeIf { it.isNotBlank() },
+                    enabled = rows[manifestUrl]!!["enabled"]!!.jsonPrimitive.boolean,
                 )
             },
         )
@@ -100,6 +85,7 @@ object AddonRepository {
         currentProfileId = effectiveProfileId
         initialized = false
         _uiState.value = AddonsUiState()
+        rawSyncSnapshot = JsonArray(emptyList())
     }
 
     fun clearLocalState() {
@@ -109,6 +95,7 @@ object AddonRepository {
         currentProfileId = 1
         initialized = false
         _uiState.value = AddonsUiState()
+        rawSyncSnapshot = JsonArray(emptyList())
     }
 
     suspend fun pullFromServer(profileId: Int) {
@@ -116,55 +103,31 @@ object AddonRepository {
         val effectiveProfileId = resolveEffectiveProfileId(profileId)
         log.i { "pullFromServer() — profileId=$profileId, initialized=$initialized" }
         runCatching {
-            val rows = SupabaseProvider.client.postgrest
-                .from("addons")
-                .select {
-                    filter { eq("profile_id", effectiveProfileId) }
-                    order("sort_order", Order.ASCENDING)
-                }
-                .decodeList<AddonRow>()
-            owner.requireCurrent()
-            if (resolveEffectiveProfileId(profileId) != effectiveProfileId) throw CancellationException("Addon scope changed")
-            currentProfileId = effectiveProfileId
-
-            val rowsByUrl = linkedMapOf<String, AddonRow>()
-            rows.forEach { row ->
-                val manifestUrl = ensureManifestSuffix(row.url)
-                if (!rowsByUrl.containsKey(manifestUrl)) {
-                    rowsByUrl[manifestUrl] = row.copy(url = manifestUrl)
-                }
+            AddonSyncCoordinator.reconcile(owner, effectiveProfileId,
+                mayUpload = !isUsingPrimaryAddonsFromSecondaryProfile(),
+                stillEffective = { resolveEffectiveProfileId(profileId) == effectiveProfileId }) { snapshot ->
+                applySyncedSnapshot(effectiveProfileId, snapshot)
             }
-
-            val urls = rowsByUrl.keys.toList()
-            log.i { "pullFromServer() — server returned ${rows.size} addons" }
-            urls.forEachIndexed { i, u -> log.d { "  server[$i]: ${redactDiagnosticText(u)}" } }
-
-            val existingByUrl = _uiState.value.addons.associateBy(ManagedAddon::manifestUrl)
-            _uiState.value = AddonsUiState(
-                addons = urls.map { url ->
-                    val row = rowsByUrl[url]
-                    existingByUrl[url].toPendingAddon(
-                        manifestUrl = url,
-                        userSetName = row?.name?.takeIf { it.isNotBlank() },
-                        enabled = row?.enabled,
-                    )
-                },
-            )
-            persist()
-            urls.forEach { url ->
-                val existing = existingByUrl[url]
-                val addon = _uiState.value.addons.firstOrNull { it.manifestUrl == url }
-                if (addon?.enabled == true && (existing == null || (addon.manifest == null && !addon.isRefreshing))) {
-                    refreshAddon(url)
-                }
-            }
-            initialized = true
-            log.i { "pullFromServer() — applied ${urls.size} addons to state" }
         }.onFailure { e ->
             if (e is CancellationException) throw e
             log.e { "pullFromServer() — FAILED: ${e::class.simpleName}" }
             throw e
         }
+    }
+
+    private fun applySyncedSnapshot(profileId: Int, snapshot: JsonArray) {
+        currentProfileId = profileId
+        val existingByUrl = _uiState.value.addons.associateBy(ManagedAddon::manifestUrl)
+        _uiState.value = AddonsUiState(addons = snapshot.map { item ->
+            val row = item.jsonObject
+            val url = row["url"]!!.jsonPrimitive.content
+            val name = row["name"]!!.jsonPrimitive.content.takeIf { it.isNotBlank() }
+            existingByUrl[url]?.copy(userSetName = name).toPendingAddon(url, name, row["enabled"]!!.jsonPrimitive.boolean)
+        })
+        rawSyncSnapshot = snapshot
+        persist(sync = false)
+        initialized = true
+        _uiState.value.addons.filter { it.enabled && it.manifest == null }.forEach { refreshAddon(it.manifestUrl) }
     }
 
     suspend fun awaitManifestsLoaded() {
@@ -180,6 +143,9 @@ object AddonRepository {
         if (isUsingPrimaryAddonsFromSecondaryProfile()) {
             return AddAddonResult.Error(getString(Res.string.profile_primary_addons_required))
         }
+        val initiatingAuth = AuthRepository.state.value
+        val initiatingProfile = ProfileRepository.activeProfileId
+        val initiatingBackend = ServerConfigurationRepository.active.value.backendUrl
         log.i { "addAddon() — rawUrl=${redactDiagnosticText(rawUrl)}" }
         val manifestUrl = try {
             normalizeManifestUrl(rawUrl)
@@ -200,7 +166,13 @@ object AddonRepository {
                 )
             }
         } catch (error: Throwable) {
+            if (error is CancellationException) throw error
             return AddAddonResult.Error(error.message ?: getString(Res.string.addon_load_manifest_failed))
+        }
+
+        if (AuthRepository.state.value != initiatingAuth || ProfileRepository.activeProfileId != initiatingProfile ||
+            ServerConfigurationRepository.active.value.backendUrl != initiatingBackend) {
+            throw CancellationException("Addon installation owner changed")
         }
 
         _uiState.update { current ->
@@ -350,16 +322,6 @@ object AddonRepository {
         if (isUsingPrimaryAddonsFromSecondaryProfile()) return
         val owner = accountSyncOwner() ?: return
         val profileId = currentProfileId
-        val addons = _uiState.value.addons
-            .distinctBy { it.manifestUrl }
-            .mapIndexed { index, addon ->
-                AddonPushItem(
-                    url = addon.manifestUrl,
-                    name = addon.userSetName?.takeIf { it.isNotBlank() } ?: addon.manifest?.name ?: "",
-                    enabled = addon.enabled,
-                    sortOrder = index,
-                )
-            }
         pushJobsByProfile[profileId]?.cancel()
         var pushJob: Job? = null
         pushJob = scope.launch {
@@ -367,13 +329,10 @@ object AddonRepository {
                 delay(ADDON_PUSH_DEBOUNCE_MS)
                 owner.requireCurrent()
                 if (resolveEffectiveProfileId(owner.profileId) != profileId) return@launch
-                log.d { "pushToServer() — profileId=$profileId, pushing ${addons.size} addons" }
-                val params = buildJsonObject {
-                    put("p_profile_id", profileId)
-                    put("p_addons", json.encodeToJsonElement(addons))
-                    putSyncOriginClientId()
+                AddonSyncCoordinator.reconcile(owner, profileId, mayUpload = true,
+                    stillEffective = { resolveEffectiveProfileId(owner.profileId) == profileId }) { snapshot ->
+                    applySyncedSnapshot(profileId, snapshot)
                 }
-                SupabaseProvider.client.postgrest.rpc("sync_push_addons", params)
                 log.d { "pushToServer() — success" }
             } catch (error: CancellationException) {
                 throw error
@@ -405,8 +364,15 @@ object AddonRepository {
         }
     }
 
-    private fun persist() {
+    private fun persist(sync: Boolean = true) {
         val addons = _uiState.value.addons
+        val next = JsonArray(addons.distinctBy { it.manifestUrl }.mapIndexed { index, addon -> buildJsonObject {
+            put("url", addon.manifestUrl); put("name", addon.userSetName.orEmpty())
+            put("enabled", addon.enabled); put("sort_order", index)
+        } })
+        if (sync) AddonSyncCoordinator.recordLocal(currentProfileId, rawSyncSnapshot, next)
+        AddonStorage.saveSyncSnapshot(currentProfileId, next.toString())
+        rawSyncSnapshot = next
         AddonStorage.saveInstalledAddonUrls(
             currentProfileId,
             dedupeManifestUrls(addons.map { it.manifestUrl }),
@@ -472,7 +438,7 @@ private fun ManagedAddon?.toPendingAddon(
 private fun dedupeManifestUrls(urls: List<String>): List<String> =
     urls.map(::ensureManifestSuffix).distinct()
 
-private fun ensureManifestSuffix(url: String): String {
+internal fun ensureManifestSuffix(url: String): String {
     val path = url.substringBefore("?").trimEnd('/')
     val query = url.substringAfter("?", "")
     val withSuffix = if (path.endsWith("/manifest.json")) path else "$path/manifest.json"
