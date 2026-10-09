@@ -198,6 +198,7 @@ object LibraryRepository {
     suspend fun pullFromServer(
         profileId: Int,
         refreshIntent: TrackingRefreshIntent = TrackingRefreshIntent.AUTOMATIC,
+        throwOnFailure: Boolean = false,
     ) {
         val operationToken = activeOperationToken(profileId) ?: run {
             log.d { "Skipping library pull for inactive profile $profileId" }
@@ -209,6 +210,7 @@ object LibraryRepository {
                 provider = provider,
                 reason = "explicit pull",
                 intent = refreshIntent,
+                throwOnFailure = throwOnFailure,
             )
             if (!isActiveOperation(operationToken)) return
             publish()
@@ -245,6 +247,7 @@ object LibraryRepository {
                 throw error
             } catch (error: Throwable) {
                 log.e(error) { "Failed to pull library from server" }
+                if (throwOnFailure) throw error
             }
         }
     }
@@ -675,6 +678,7 @@ object LibraryRepository {
         provider: TrackingLibraryProvider,
         reason: String,
         intent: TrackingRefreshIntent,
+        throwOnFailure: Boolean = false,
     ) {
         log.i {
             "Tracking library refresh request provider=${provider.providerId.storageId} " +
@@ -688,6 +692,7 @@ object LibraryRepository {
             log.e(error) {
                 "Failed to refresh ${provider.providerId.storageId} library during $reason"
             }
+            if (throwOnFailure) throw error
         }
     }
 

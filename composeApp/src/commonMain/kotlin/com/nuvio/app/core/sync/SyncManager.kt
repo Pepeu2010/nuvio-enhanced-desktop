@@ -283,9 +283,9 @@ object SyncManager {
         pullPlugins = { profileId -> PluginRepository.pullFromServer(profileId) },
         pullProfileSettings = { profileId -> ProfileSettingsSync.pull(profileId) },
         syncProviderCredentials = { profileId -> ProviderCredentialSync.syncFromRemote(profileId) },
-        pullLibrary = { profileId -> LibraryRepository.pullFromServer(profileId) },
+        pullLibrary = { profileId -> LibraryRepository.pullFromServer(profileId, throwOnFailure = true) },
         refreshActiveWatchSource = { profileId ->
-            val result = WatchProgressSourceCoordinator.refreshActiveSource(profileId = profileId, force = true)
+            val result = WatchProgressSourceCoordinator.refreshActiveSource(profileId = profileId, force = false)
             check(result.succeeded) {
                 "Active watch source refresh was incomplete: " +
                     "progress=${result.progressRefreshed} watched=${result.watchedHistoryRefreshed}"
@@ -295,7 +295,7 @@ object SyncManager {
         pullHomeCatalogSettings = { profileId -> HomeCatalogSettingsSyncService.pullFromServer(profileId) },
     )
     private val profileActivitySyncOperations = ProfileActivitySyncOperations(
-        pullLibrary = { profileId -> LibraryRepository.pullFromServer(profileId) },
+        pullLibrary = { profileId -> LibraryRepository.pullFromServer(profileId, throwOnFailure = true) },
         pullWatchActivity = { profileId ->
             val result = WatchProgressSourceCoordinator.refreshActiveSource(profileId = profileId, force = false)
             check(result.succeeded) {
