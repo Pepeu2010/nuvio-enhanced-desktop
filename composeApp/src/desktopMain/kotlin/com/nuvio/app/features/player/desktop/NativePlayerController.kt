@@ -837,7 +837,10 @@ internal class NativePlayerController(
     }
 
     fun dispose() {
-        configureTimelineFrames(null, "", emptyMap())
+        // Detachment must not dispatch another controls update to the departing native handle.
+        timelineFrames?.configure(null, "", emptyList())
+        timelineConfiguration = null
+        timelineFrame = null
         host.resetCursorVisibility()
         val accepted = synchronized(lifecycleLock) {
             if (releaseRequested) {
