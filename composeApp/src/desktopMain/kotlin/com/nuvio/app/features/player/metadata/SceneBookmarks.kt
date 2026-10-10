@@ -26,6 +26,14 @@ internal data class SceneBookmarkScope(
     }
     companion object {
         fun sourceEdition(source: String): String = bookmarkDigest(source)
+        fun fromPlayer(owner: ProfileAvatarScope?, metadata: TimedMetadataScope?, source: String,
+                       sourceAvailable: Boolean): SceneBookmarkScope? {
+            if (owner == null || metadata == null || !sourceAvailable || source.isBlank() || source.length > 16384) return null
+            // A series ID alone cannot distinguish its episodes. Wait for an actual video identity.
+            if (metadata.mediaType.equals("series", ignoreCase = true) && metadata.videoId == metadata.mediaId) return null
+            return runCatching { SceneBookmarkScope(owner, metadata.mediaId, metadata.mediaType,
+                metadata.videoId, sourceEdition(source)) }.getOrNull()
+        }
     }
 }
 

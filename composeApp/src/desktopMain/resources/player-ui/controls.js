@@ -2340,7 +2340,11 @@ const renderChrome = () => {
   setActionButtonLabel("subtitles", state.subtitlesLabel || "Subs");
   setActionButtonLabel("audio", state.audioLabel || "Audio");
   const bookmarkButton = document.querySelector('[data-command="sceneBookmarks"]');
-  bookmarkButton.hidden = !state.showSceneBookmarks;
+  if (bookmarkButton) {
+    bookmarkButton.hidden = !state.showSceneBookmarks;
+    const text = bookmarkButton.querySelector('span');
+    if (text) text.textContent = state.sceneBookmarksLabel || "Saved moments";
+  }
   setActionButtonLabel("sceneBookmarks", state.sceneBookmarksLabel || "Saved moments");
   setActionButtonLabel("sources", state.sourcesLabel || "Sources");
   setActionButtonLabel("episodes", state.episodesLabel || "Episodes");

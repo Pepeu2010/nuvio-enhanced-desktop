@@ -150,9 +150,7 @@ private fun NativePlayerSurface(
     val metadata = playerControlsState.metadataScope
     val requestedBookmarkScope = remember(authState, profileState.activeProfile, metadata, sourceUrl, sourceAvailable) {
         val owner = profileState.activeProfile?.let { ProfileStudioAvatars.scope(it, authState) }
-        if (owner == null || metadata == null || !sourceAvailable || sourceUrl.isBlank() || sourceUrl.length > 16384) null
-        else runCatching { SceneBookmarkScope(owner, metadata.mediaId, metadata.mediaType, metadata.videoId,
-            SceneBookmarkScope.sourceEdition(sourceUrl)) }.getOrNull()
+        SceneBookmarkScope.fromPlayer(owner, metadata, sourceUrl, sourceAvailable)
     }
     val bookmarks = remember(controller) { PlayerSceneBookmarksDesktop(
         SceneBookmarkStore(DesktopStorage.rootDir.resolve("scene-bookmarks-v1")), bookmarkScopes, bookmarkJobs,

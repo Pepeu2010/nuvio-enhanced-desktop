@@ -15,6 +15,20 @@ class PlayerSceneBookmarksDesktopTest {
     private val identity = SceneBookmarkScope(ProfileAvatarScope("fixture-account", 2, "stable-profile"),
         "tt12879200", "series", "tt12879200:1:2", SceneBookmarkScope.sourceEdition("br-cut"))
 
+    @Test fun realPlayerScopeRequiresAnOwnerSourceAndIdentifiedEpisode() {
+        val metadata = TimedMetadataScope(identity.mediaId, identity.mediaType, identity.videoId)
+        assertEquals(identity, SceneBookmarkScope.fromPlayer(identity.owner, metadata, "br-cut", true))
+        assertNull(SceneBookmarkScope.fromPlayer(null, metadata, "br-cut", true))
+        assertNull(SceneBookmarkScope.fromPlayer(identity.owner, null, "br-cut", true))
+        assertNull(SceneBookmarkScope.fromPlayer(identity.owner, metadata, "br-cut", false))
+        assertNull(SceneBookmarkScope.fromPlayer(identity.owner, metadata, "", true))
+        assertNull(SceneBookmarkScope.fromPlayer(identity.owner, metadata, "a".repeat(16385), true))
+        assertNull(SceneBookmarkScope.fromPlayer(identity.owner, metadata.copy(videoId = identity.mediaId), "br-cut", true))
+        assertNull(SceneBookmarkScope.fromPlayer(identity.owner, metadata.copy(videoId = ""), "br-cut", true))
+        val movie = metadata.copy(mediaType = "movie", videoId = metadata.mediaId)
+        assertNotNull(SceneBookmarkScope.fromPlayer(identity.owner, movie, "br-cut", true))
+    }
+
     private class Fixture(val root: Path, val store: SceneBookmarkStore,
         val scopes: MutableStateFlow<SceneBookmarkScope?>) {
         var point = PlayerPlaybackSnapshot(isLoading = false, durationMs = 100_000, positionMs = 32_180)
