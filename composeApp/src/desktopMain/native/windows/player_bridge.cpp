@@ -2968,6 +2968,6 @@ namespace telumia_frames {
 static Api platformApi() {
     auto &api = mpvApi(); api.ensureLoaded();
     return {api.create, api.initialize, api.terminateDestroy, api.setOptionString, api.command,
-            api.commandRet, api.getProperty, api.waitEvent, api.freeNode, api.wakeup};
+            api.commandRet, api.getProperty, api.waitEvent, api.freeNode, api.wakeup, api.setOption};
 }
 }

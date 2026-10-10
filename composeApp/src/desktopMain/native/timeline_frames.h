@@ -22,6 +22,7 @@ struct Api {
     mpv_event *(*event)(mpv_handle *, double);
     void (*freeNode)(mpv_node *);
     void (*wakeup)(mpv_handle *);
+    int (*optionNode)(mpv_handle *, const char *, mpv_format, void *);
 };
 static Api platformApi();
 struct Worker {
@@ -95,20 +96,28 @@ Java_com_nuvio_app_features_player_desktop_NativePlayerBridge_createTimelineWork
             {"network-timeout", "4"}, {"vf", "scale=320:180:force_original_aspect_ratio=decrease"}
         };
         for (auto &option : options) if (api.option(worker->mpv, option[0], option[1]) < 0) return 0;
-        std::string headerText;
+        std::vector<std::string> headerValues;
+        size_t headerBytes = 0;
         const auto count = headers ? env->GetArrayLength(headers) : 0;
         if (count > 32) return 0;
+        headerValues.reserve(count);
         for (jsize i = 0; i < count; ++i) {
             auto line = static_cast<jstring>(env->GetObjectArrayElement(headers, i));
             auto text = TELUMIA_FRAME_UTF8(env, line);
             env->DeleteLocalRef(line);
             if (text.find_first_of("\r\n\0", 0, 3) != std::string::npos || text.size() > 4096) return 0;
-            // libmpv's string-list syntax: commas and backslashes in values are escaped.
-            if (!headerText.empty()) headerText += ',';
-            for (auto character : text) { if (character == ',' || character == '\\') headerText += '\\'; headerText += character; }
+            headerBytes += text.size();
+            if (headerBytes > 16384) return 0;
+            headerValues.push_back(std::move(text));
         }
-        if (headerText.size() > 16384) return 0;
-        if (!headerText.empty() && api.option(worker->mpv, "http-header-fields", headerText.c_str()) < 0) return 0;
+        if (!headerValues.empty()) {
+            // Pass a typed list instead of parsing CSV; punctuation remains part of each value.
+            std::vector<mpv_node> nodes(headerValues.size());
+            for (size_t i = 0; i < nodes.size(); ++i) { nodes[i].format = MPV_FORMAT_STRING; nodes[i].u.string = headerValues[i].data(); }
+            mpv_node_list list{static_cast<int>(nodes.size()), nodes.data(), nullptr};
+            mpv_node root{}; root.format = MPV_FORMAT_NODE_ARRAY; root.u.list = &list;
+            if (api.optionNode(worker->mpv, "http-header-fields", MPV_FORMAT_NODE, &root) < 0) return 0;
+        }
         if (api.initialize(worker->mpv) < 0) return 0;
         std::lock_guard<std::mutex> guard(registryMutex);
         auto id = nextId++;

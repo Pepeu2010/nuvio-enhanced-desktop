@@ -24,9 +24,11 @@ import kotlin.test.assertTrue
 class NativeTimelineFramesTest {
     @Test fun authenticatedHttpFixturePreservesCommaAndBackslashHeaderValues() {
         val bytes=originalAvi();val requests=AtomicInteger();val header="alpha,beta\\tail"
+        val observedHeaders=java.util.concurrent.CopyOnWriteArrayList<String>()
         val server=HttpServer.create(InetSocketAddress("127.0.0.1",0),0)
         server.createContext("/original.avi") { exchange ->
             try {
+                observedHeaders+=exchange.requestHeaders.getFirst("X-Telumia-Fixture")?:"<missing>"
                 if(exchange.requestHeaders.getFirst("X-Telumia-Fixture")!=header) {exchange.sendResponseHeaders(403,-1);return@createContext}
                 requests.incrementAndGet()
                 val range=Regex("bytes=(\\d+)-(\\d*)").matchEntire(exchange.requestHeaders.getFirst("Range").orEmpty())
@@ -45,7 +47,8 @@ class NativeTimelineFramesTest {
         try {
             assertTrue(handle!=0L)
             for(position in listOf(500L,4500L)) {
-                val frame=assertNotNull(DesktopTimelineFrames.decode(assertNotNull(NativePlayerBridge.captureTimelineFrame(handle,position)),position,6000))
+                val frame=assertNotNull(DesktopTimelineFrames.decode(assertNotNull(NativePlayerBridge.captureTimelineFrame(handle,position),
+                    "HTTP frame $position; accepted=$requests; observed fixture headers=$observedHeaders"),position,6000))
                 assertEquals(position,frame.decodedPositionMs)
             }
             assertTrue(requests.get()>0,"Actual HTTP requests must pass the fixture header gate")
