@@ -9,6 +9,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "mpv_header_fields.h"
 
 namespace telumia_frames {
 struct Api {
@@ -110,14 +111,7 @@ Java_com_nuvio_app_features_player_desktop_NativePlayerBridge_createTimelineWork
             if (headerBytes > 16384) return 0;
             headerValues.push_back(std::move(text));
         }
-        if (!headerValues.empty()) {
-            // Pass a typed list instead of parsing CSV; punctuation remains part of each value.
-            std::vector<mpv_node> nodes(headerValues.size());
-            for (size_t i = 0; i < nodes.size(); ++i) { nodes[i].format = MPV_FORMAT_STRING; nodes[i].u.string = headerValues[i].data(); }
-            mpv_node_list list{static_cast<int>(nodes.size()), nodes.data(), nullptr};
-            mpv_node root{}; root.format = MPV_FORMAT_NODE_ARRAY; root.u.list = &list;
-            if (api.optionNode(worker->mpv, "http-header-fields", MPV_FORMAT_NODE, &root) < 0) return 0;
-        }
+        if (telumia_headers::apply(worker->mpv, headerValues, api.optionNode) < 0) return 0;
         if (api.initialize(worker->mpv) < 0) return 0;
         std::lock_guard<std::mutex> guard(registryMutex);
         auto id = nextId++;

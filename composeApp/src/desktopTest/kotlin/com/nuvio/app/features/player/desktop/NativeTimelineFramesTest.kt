@@ -22,6 +22,85 @@ import kotlin.test.assertTrue
 
 /** Uses the packaged JNI bridge and actual bundled libmpv, not a simulated seek callback. */
 class NativeTimelineFramesTest {
+    @Test fun actualWindowsPrimaryPlayerPreservesHttpHeadersAndPreviewDoesNotSeekPlayback() {
+        org.junit.Assume.assumeTrue("Windows native player integration gate", DesktopHostOs.current == DesktopHostOs.WINDOWS)
+        val bytes = originalAvi()
+        val header = "alpha,beta\\tail"
+        val accepted = AtomicInteger()
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/primary.avi") { exchange ->
+            try {
+                if (exchange.requestHeaders.getFirst("X-Telumia-Fixture") != header) {
+                    exchange.sendResponseHeaders(403, -1); return@createContext
+                }
+                accepted.incrementAndGet()
+                val range = Regex("bytes=(\\d+)-(\\d*)").matchEntire(exchange.requestHeaders.getFirst("Range").orEmpty())
+                val start = range?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val end = range?.groupValues?.get(2)?.toIntOrNull()?.coerceAtMost(bytes.lastIndex) ?: bytes.lastIndex
+                if (start !in bytes.indices || end < start) {
+                    exchange.responseHeaders.add("Content-Range", "bytes */${bytes.size}")
+                    exchange.sendResponseHeaders(416, -1); return@createContext
+                }
+                exchange.responseHeaders.add("Content-Type", "video/x-msvideo")
+                exchange.responseHeaders.add("Accept-Ranges", "bytes")
+                if (range != null) exchange.responseHeaders.add("Content-Range", "bytes $start-$end/${bytes.size}")
+                if (exchange.requestMethod == "HEAD") exchange.sendResponseHeaders(200, -1)
+                else {
+                    exchange.sendResponseHeaders(if (range == null) 200 else 206, (end - start + 1).toLong())
+                    exchange.responseBody.write(bytes, start, end - start + 1)
+                }
+            } finally { exchange.close() }
+        }
+        server.start()
+        val frame = javax.swing.JFrame("Owned Telumia native test")
+        val host = NativePlayerHost()
+        var primary = 0L
+        var worker = 0L
+        fun awaitNative(message: String, ready: () -> Boolean) {
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(12)
+            while (System.nanoTime() < deadline) {
+                if (ready()) return
+                Thread.sleep(25)
+            }
+            assertTrue(ready(), message)
+        }
+        try {
+            // A real peer/ HWND owned by this test; the window is never shown on the user's desktop.
+            javax.swing.SwingUtilities.invokeAndWait {
+                frame.contentPane.add(host); frame.setSize(640, 360); frame.addNotify(); frame.validate()
+            }
+            val source = "http://127.0.0.1:${server.address.port}/primary.avi"
+            val headers = arrayOf("X-Telumia-Fixture: $header")
+            primary = NativePlayerBridge.create(AwtNativeViewResolver.resolveNativeViewPointer(host), source, headers,
+                false, 0, NativePlayerBridge.controlsPageUrl, 1, false, NativePlayerEventSink { _, _ -> })
+            assertTrue(primary != 0L)
+            awaitNative("Primary libmpv must open the authenticated HTTP fixture") {
+                NativePlayerBridge.durationMs(primary) == 6000L && !NativePlayerBridge.isLoading(primary)
+            }
+            assertTrue(NativePlayerBridge.isPaused(primary))
+            NativePlayerBridge.seekTo(primary, 2000)
+            awaitNative("Actual primary seek must reach 2000 ms") { NativePlayerBridge.positionMs(primary) in 1900L..2100L }
+            val pausedPosition = NativePlayerBridge.positionMs(primary)
+            worker = NativePlayerBridge.createTimelineWorker(source, headers)
+            assertTrue(worker != 0L)
+            for (position in listOf(500L, 4500L)) {
+                val extracted = assertNotNull(DesktopTimelineFrames.decode(
+                    assertNotNull(NativePlayerBridge.captureTimelineFrame(worker, position)), position, 6000))
+                assertEquals(position, extracted.decodedPositionMs)
+            }
+            assertEquals(pausedPosition, NativePlayerBridge.positionMs(primary), "Preview extraction cannot seek the primary player")
+            NativePlayerBridge.setPaused(primary, false)
+            awaitNative("Actual primary playback must advance after resume") { NativePlayerBridge.positionMs(primary) >= pausedPosition + 500 }
+            NativePlayerBridge.setPaused(primary, true)
+            assertTrue(accepted.get() >= 2, "Both native players must pass the HTTP header gate")
+        } finally {
+            if (worker != 0L) NativePlayerBridge.disposeTimelineWorker(worker)
+            if (primary != 0L) NativePlayerBridge.dispose(primary)
+            javax.swing.SwingUtilities.invokeAndWait { frame.dispose() }
+            server.stop(0)
+        }
+    }
+
     @Test fun authenticatedHttpFixturePreservesCommaAndBackslashHeaderValues() {
         val bytes=originalAvi();val requests=AtomicInteger();val header="alpha,beta\\tail"
         val observedHeaders=java.util.concurrent.CopyOnWriteArrayList<String>()

@@ -34,6 +34,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include "../mpv_header_fields.h"
 
 // Diagnostic logging is opt-in via NUVIO_BRIDGE_DEBUG=1 so a normal run is quiet;
 // genuine errors always log via NUVIO_ERR.
@@ -295,20 +296,6 @@ bool playerLoading(Player *p) {
 
 void mpvSetDouble(mpv_handle *mpv, const char *name, double value) {
     mpv_set_property(mpv, name, MPV_FORMAT_DOUBLE, &value);
-}
-
-// mpv http-header-fields wants a comma-separated list; commas and
-// backslashes inside a header value must be backslash-escaped.
-std::string joinHeaderFields(const std::vector<std::string> &headers) {
-    std::string joined;
-    for (size_t i = 0; i < headers.size(); ++i) {
-        if (i > 0) joined.push_back(',');
-        for (char c : headers[i]) {
-            if (c == '\\' || c == ',') joined.push_back('\\');
-            joined.push_back(c);
-        }
-    }
-    return joined;
 }
 
 Player *asPlayer(jlong handle) { return reinterpret_cast<Player *>(handle); }
@@ -1552,17 +1539,15 @@ JNIEXPORT jlong JNICALL NP(create)(
     }
 
     // Forward addon/debrid HTTP headers verbatim.
-    std::string headerFields;
+    std::vector<std::string> headers;
     if (headerLines != nullptr) {
         jsize count = env->GetArrayLength(headerLines);
-        std::vector<std::string> headers;
         headers.reserve(count);
         for (jsize i = 0; i < count; ++i) {
             auto line = static_cast<jstring>(env->GetObjectArrayElement(headerLines, i));
             headers.push_back(jstringToUtf8(env, line));
             if (line) env->DeleteLocalRef(line);
         }
-        if (!headers.empty()) headerFields = joinHeaderFields(headers);
     }
 
     auto configure = [&](mpv_handle *m, const char *gpuCtx, const char *hwdec) {
@@ -1622,9 +1607,7 @@ JNIEXPORT jlong JNICALL NP(create)(
         mpv_set_option_string(m, "target-colorspace-hint", "yes");
         mpv_set_option_string(m, "target-colorspace-hint-mode", "source");
 
-        if (!headerFields.empty()) {
-            mpv_set_option_string(m, "http-header-fields", headerFields.c_str());
-        }
+        telumia_headers::apply(m, headers, mpv_set_option);
         if (initialPositionMs > 0) {
             std::string start = std::to_string(initialPositionMs / 1000.0);
             mpv_set_option_string(m, "start", start.c_str());

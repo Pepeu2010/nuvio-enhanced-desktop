@@ -18,6 +18,7 @@
 #include <dlfcn.h>
 #include <string>
 #include <vector>
+#include "../mpv_header_fields.h"
 
 #ifndef NX_SUBTYPE_AUX_CONTROL_BUTTONS
 #define NX_SUBTYPE_AUX_CONTROL_BUTTONS 8
@@ -1535,14 +1536,12 @@ static void setMpvOptionString(mpv_handle *mpv, const char *name, const char *va
     setMpvOptionString(_mpv, "hr-seek", "no");
 
     if (headerLines.count > 0) {
-        NSMutableArray *escaped = [NSMutableArray arrayWithCapacity:headerLines.count];
+        std::vector<std::string> headers;
+        headers.reserve(headerLines.count);
         for (NSString *line in headerLines) {
-            NSString *esc = [[line stringByReplacingOccurrencesOfString:@"\\" withString:@"\\\\"]
-                             stringByReplacingOccurrencesOfString:@"," withString:@"\\,"];
-            [escaped addObject:esc];
+            headers.emplace_back(line.UTF8String);
         }
-        NSString *headers = [escaped componentsJoinedByString:@","];
-        setMpvOptionString(_mpv, "http-header-fields", headers.UTF8String);
+        telumia_headers::apply(_mpv, headers, mpv_set_option);
     }
 
     int initResult = mpv_initialize(_mpv);

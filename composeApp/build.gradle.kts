@@ -740,6 +740,7 @@ val buildMacosPlayerBridge = tasks.register<Exec>("buildMacosPlayerBridge") {
     enabled = isMacHost
     inputs.file(macosPlayerBridgeSource)
     inputs.file(layout.projectDirectory.file("src/desktopMain/native/timeline_frames.h"))
+    inputs.file(layout.projectDirectory.file("src/desktopMain/native/mpv_header_fields.h"))
     inputs.file(bundledMacosLibmpvDylib)
     inputs.dir(macosLibmpvHeaders)
     outputs.file(macosPlayerBridgeOutput)
@@ -761,6 +762,7 @@ val buildLinuxPlayerBridge = tasks.register<Exec>("buildLinuxPlayerBridge") {
     enabled = isLinuxHost
     inputs.file(linuxPlayerBridgeSourceFile)
     inputs.file(layout.projectDirectory.file("src/desktopMain/native/timeline_frames.h"))
+    inputs.file(layout.projectDirectory.file("src/desktopMain/native/mpv_header_fields.h"))
     outputs.file(linuxPlayerBridgeOutputFile)
     val src = linuxPlayerBridgeSourceFile.absolutePath
     val out = linuxPlayerBridgeOutputFile.absolutePath
@@ -939,6 +941,7 @@ val buildWindowsPlayerBridge = tasks.register<Exec>("buildWindowsPlayerBridge") 
     enabled = isWindowsHost
     inputs.file(windowsPlayerBridgeSource)
     inputs.file(layout.projectDirectory.file("src/desktopMain/native/timeline_frames.h"))
+    inputs.file(layout.projectDirectory.file("src/desktopMain/native/mpv_header_fields.h"))
     if (windowsWebView2IncludeDir.exists()) {
         inputs.dir(windowsWebView2IncludeDir)
     }
@@ -1739,4 +1742,10 @@ configurations.matching { it.name == "iosMainImplementation" }.configureEach {
 configurations.all {
     exclude(group = "androidx.media3", module = "media3-exoplayer")
     exclude(group = "androidx.media3", module = "media3-ui")
+}
+
+// Match the production AWT peer access for the real native-window regression test.
+tasks.withType<org.gradle.api.tasks.testing.Test>().matching { it.name == "desktopTest" }.configureEach {
+    jvmArgs("--add-opens=java.desktop/java.awt=ALL-UNNAMED",
+        "--add-opens=java.desktop/sun.awt.windows=ALL-UNNAMED")
 }

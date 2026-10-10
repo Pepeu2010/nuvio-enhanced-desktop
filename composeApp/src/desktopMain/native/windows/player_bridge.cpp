@@ -69,6 +69,8 @@ typedef struct mpv_event {
 } mpv_event;
 }
 
+#include "../mpv_header_fields.h"
+
 namespace {
 
 HMODULE gModule = nullptr;
@@ -1748,17 +1750,8 @@ private:
                 throw std::runtime_error(std::string("mpv wid option failed: ") + api.errorText(widResult));
             }
 
-            if (!headerLines.empty()) {
-                std::string headers;
-                for (size_t index = 0; index < headerLines.size(); index++) {
-                    if (index > 0) headers.push_back(',');
-                    // Escape backslashes and commas in header values
-                    for (char c : headerLines[index]) {
-                        if (c == '\\' || c == ',') headers.push_back('\\');
-                        headers.push_back(c);
-                    }
-                }
-                setMpvOptionStringLocked("http-header-fields", headers.c_str());
+            if (telumia_headers::apply(mpv, headerLines, api.setOption) < 0) {
+                throw std::runtime_error("mpv HTTP header option failed");
             }
 
             int initResult = api.initialize(mpv);
