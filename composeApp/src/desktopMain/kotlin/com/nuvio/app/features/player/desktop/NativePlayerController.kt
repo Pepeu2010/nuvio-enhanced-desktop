@@ -25,6 +25,7 @@ import com.nuvio.app.features.player.SubtitleStyleState
 import com.nuvio.app.features.player.SubtitleTrack
 import com.nuvio.app.features.player.inferForcedSubtitleTrack
 import com.nuvio.app.features.player.toStorageHexString
+import com.nuvio.app.features.player.metadata.SceneBookmarkScope
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -100,6 +101,9 @@ internal class NativePlayerController(
     private var releaseTimedOut: Boolean = false
     private var terminalReleaseFailure: String? = null
     private var controlsState = PlayerControlsState()
+    private var timelineConfiguration: Triple<SceneBookmarkScope?, String, List<String>>? = null
+    private var timelineFrame: TimelineFrame? = null
+    private var timelineFrames: DesktopTimelineFrames? = null
     @Volatile
     private var currentVolumeLevel = rememberedVolumeLevel.coerceDesktopPlayerVolumeLevel()
     private var pendingSubtitleDelayMs: Int? = null
@@ -438,6 +442,8 @@ internal class NativePlayerController(
             state = stateWithVolume.nativeControlsStructureKey(),
             isFullscreen = isFullscreen,
             isInPip = DesktopPlayerPictureInPicture.isEnabled,
+            timelineFrame = timelineFrame,
+            timelineEnabled = timelineConfiguration?.first != null,
         )
         if (structureKey == lastSentControlsStructureKey) return
         lastSentControlsStructureKey = structureKey
@@ -447,8 +453,27 @@ internal class NativePlayerController(
                 "speed=${stateWithVolume.playbackSpeedLabel} audioLabel=${stateWithVolume.audioLabel} " +
                 "subsLabel=${stateWithVolume.subtitlesLabel} fullscreen=$isFullscreen"
         }
-        NativePlayerBridge.updateControls(current, stateWithVolume.toControlsJson(isFullscreen))
+        NativePlayerBridge.updateControls(current, stateWithVolume.toControlsJson(isFullscreen, timelineConfiguration?.first != null, timelineFrame))
     }
+
+    @Synchronized
+    fun configureTimelineFrames(scope: SceneBookmarkScope?, source: String, headers: Map<String, String>) {
+        val next = Triple(scope, source, headers.toHeaderLines())
+        if (timelineConfiguration == next || releaseRequested) return
+        timelineConfiguration = next; timelineFrame = null
+        if (scope != null && timelineFrames == null) timelineFrames = DesktopTimelineFrames(deliver = { owner, frame, current ->
+            SwingUtilities.invokeLater {
+                if (current() && timelineConfiguration?.first == owner && !releaseRequested && !DesktopPlayerPictureInPicture.isEnabled) {
+                    timelineFrame = frame; lastSentControlsStructureKey = null; updateControls(controlsState)
+                }
+            }
+        })
+        timelineFrames?.configure(scope, source, next.third)
+        lastSentControlsStructureKey = null
+        updateControls(controlsState)
+    }
+
+    fun closeTimelineFrames() { timelineFrames?.close(); timelineFrames = null }
 
     fun onDesktopFullscreenChanged() {
         lastSentControlsStructureKey = null
@@ -519,6 +544,13 @@ internal class NativePlayerController(
             log.d { "event received handle=$handle type=$type value=$value" }
         }
         when (type) {
+            "timelinePreview" -> {
+                if (value.isFinite() && value >= 0 && !DesktopPlayerPictureInPicture.isEnabled && timelineConfiguration?.first != null) {
+                    val playback = snapshot()
+                    if (!playback.isLoading) timelineFrames?.request(value.toLong(), playback.durationMs)
+                }
+            }
+            "timelinePreviewClear" -> { timelineFrames?.clear(); timelineFrame = null }
             "cursorActivity" -> host.noteCursorActivity()
             "scrubChange" -> {
                 val handled = onScrubChange(value.toLong())
@@ -805,6 +837,7 @@ internal class NativePlayerController(
     }
 
     fun dispose() {
+        configureTimelineFrames(null, "", emptyMap())
         host.resetCursorVisibility()
         val accepted = synchronized(lifecycleLock) {
             if (releaseRequested) {
@@ -827,6 +860,7 @@ internal class NativePlayerController(
     }
 
     private fun invalidateForRelease() {
+        closeTimelineFrames()
         cancelPendingAttachment()
         host.onCursorActivity = null
         onAction = { false }
@@ -1244,12 +1278,22 @@ private data class NativeControlsStructureKey(
     val state: PlayerControlsState,
     val isFullscreen: Boolean,
     val isInPip: Boolean,
+    val timelineFrame: TimelineFrame?,
+    val timelineEnabled: Boolean,
 )
 
-internal fun PlayerControlsState.toControlsJson(isFullscreen: Boolean): String =
+internal fun PlayerControlsState.toControlsJson(isFullscreen: Boolean, timelineEnabled: Boolean = false, timelineFrame: TimelineFrame? = null): String =
     buildString {
         append('{')
         appendJsonField("title", title)
+        append(',')
+        appendJsonField("timelinePreviewEnabled", timelineEnabled)
+        append(',')
+        appendJsonField("timelinePreviewRequestedMs", timelineFrame?.requestedMs ?: -1L)
+        append(',')
+        appendJsonField("timelinePreviewActualMs", timelineFrame?.decodedPositionMs ?: -1L)
+        append(',')
+        appendJsonField("timelinePreviewImage", timelineFrame?.pngDataUri.orEmpty())
         append(',')
         appendJsonField("episodeText", episodeText)
         append(',')

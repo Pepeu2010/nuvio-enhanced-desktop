@@ -2031,3 +2031,12 @@ JNIEXPORT void JNICALL NP(reparentSurfaceNative)(JNIEnv *, jobject, jlong, jlong
 
 #undef NP
 } // extern "C"
+
+#define TELUMIA_FRAME_UTF8 jstringToUtf8
+#include "../timeline_frames.h"
+namespace telumia_frames {
+static Api platformApi() {
+    return {mpv_create, mpv_initialize, mpv_terminate_destroy, mpv_set_option_string, mpv_command,
+            mpv_command_ret, mpv_get_property, mpv_wait_event, mpv_free_node_contents, mpv_wakeup};
+}
+}

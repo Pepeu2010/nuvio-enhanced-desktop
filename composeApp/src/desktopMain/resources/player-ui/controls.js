@@ -1,5 +1,58 @@
 const root = document.getElementById("playerRoot");
 const seek = document.getElementById("seek");
+const timelinePreview = document.getElementById("timelinePreview");
+const timelinePreviewImage = document.getElementById("timelinePreviewImage");
+const timelinePreviewTime = document.getElementById("timelinePreviewTime");
+let timelinePreviewTarget = -1;
+let timelinePreviewTimer = null;
+let timelinePreviewLastRequested = -1;
+const clearTimelinePreview = () => {
+  window.clearTimeout(timelinePreviewTimer);
+  timelinePreviewTimer = null;
+  timelinePreviewTarget = -1;
+  timelinePreviewLastRequested = -1;
+  timelinePreview.hidden = true;
+  timelinePreviewImage.hidden = true;
+  timelinePreviewImage.removeAttribute("src");
+  send("timelinePreviewClear", 0);
+};
+const renderTimelinePreview = () => {
+  if (!state.timelinePreviewEnabled || state.isInPip || state.isLoading || !(state.durationMs > 0) || activeModal) {
+    if (timelinePreviewTarget >= 0) clearTimelinePreview();
+    return;
+  }
+  if (timelinePreviewTarget < 0) return;
+  const image = String(state.timelinePreviewImage || "");
+  const actual = Number(state.timelinePreviewActualMs);
+  const matches = Number(state.timelinePreviewRequestedMs) === timelinePreviewTarget && actual >= 0 && actual < state.durationMs;
+  const validImage = image.length <= 320000 && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(image);
+  timelinePreviewImage.hidden = !(matches && validImage);
+  if (matches && validImage) {
+    timelinePreviewImage.src = image;
+    timelinePreviewTime.textContent = formatTime(actual);
+  } else {
+    timelinePreviewImage.removeAttribute("src");
+    timelinePreviewTime.textContent = formatTime(timelinePreviewTarget);
+  }
+};
+const requestTimelinePreview = positionMs => {
+  if (!state.timelinePreviewEnabled || state.isInPip || state.isLoading || !(state.durationMs > 0) || activeModal) return;
+  const target = Math.floor(Math.max(0, Math.min(state.durationMs - 1, positionMs)) / 250) * 250;
+  timelinePreviewTarget = target;
+  timelinePreview.hidden = false;
+  const width = seek.getBoundingClientRect().width;
+  const previewWidth = Math.min(320, Math.max(160, width));
+  timelinePreview.style.width = `${previewWidth}px`;
+  timelinePreview.style.left = `${Math.max(previewWidth / 2, Math.min(width - previewWidth / 2, target / state.durationMs * width))}px`;
+  renderTimelinePreview();
+  window.clearTimeout(timelinePreviewTimer);
+  if (target === timelinePreviewLastRequested) return;
+  timelinePreviewTimer = window.setTimeout(() => {
+    if (timelinePreviewTarget !== target) return;
+    timelinePreviewLastRequested = target;
+    send("timelinePreview", target);
+  }, 120);
+};
 const positionLabel = document.getElementById("position");
 const durationLabel = document.getElementById("duration");
 const timeLabel = document.getElementById("timeLabel");
@@ -3028,6 +3081,7 @@ seek.addEventListener("input", () => {
   scrubPositionMs = rangePositionMs();
   setProgress(scrubPositionMs, state.durationMs);
   send("scrubChange", scrubPositionMs);
+  requestTimelinePreview(scrubPositionMs);
 });
 
 seek.addEventListener("change", () => {
@@ -3036,8 +3090,16 @@ seek.addEventListener("change", () => {
   isScrubbing = false;
   send("scrubFinish", scrubPositionMs);
   state.positionMs = scrubPositionMs;
+  clearTimelinePreview();
   render();
 });
+
+seek.addEventListener("pointermove", event => {
+  const rect = seek.getBoundingClientRect();
+  if (rect.width > 0) requestTimelinePreview((event.clientX - rect.left) / rect.width * state.durationMs);
+});
+seek.addEventListener("pointerleave", () => { if (!isScrubbing) clearTimelinePreview(); });
+seek.addEventListener("blur", clearTimelinePreview);
 
 volumeSlider.addEventListener("input", event => {
   if (event && !event.isTrusted) return;
@@ -3141,6 +3203,7 @@ window.playerControls = nextState => {
     isPlaying: currentPlaybackState,
     volumeLevel: currentVolumeLevel ?? nextState.volumeLevel,
   };
+  renderTimelinePreview();
   // Apply the policy before this update can open or close a modal.
   applyMotion();
   if (typeof state.volumeLevel === "number" && state.volumeLevel > 0) {

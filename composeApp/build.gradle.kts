@@ -739,6 +739,7 @@ val buildMacosPlayerBridge = tasks.register<Exec>("buildMacosPlayerBridge") {
     notCompatibleWithConfigurationCache("Builds a host-local player bridge against the bundled macOS libmpv runtime.")
     enabled = isMacHost
     inputs.file(macosPlayerBridgeSource)
+    inputs.file(layout.projectDirectory.file("src/desktopMain/native/timeline_frames.h"))
     inputs.file(bundledMacosLibmpvDylib)
     inputs.dir(macosLibmpvHeaders)
     outputs.file(macosPlayerBridgeOutput)
@@ -759,6 +760,7 @@ val buildLinuxPlayerBridge = tasks.register<Exec>("buildLinuxPlayerBridge") {
     notCompatibleWithConfigurationCache("Builds a host-local player bridge against system libmpv.")
     enabled = isLinuxHost
     inputs.file(linuxPlayerBridgeSourceFile)
+    inputs.file(layout.projectDirectory.file("src/desktopMain/native/timeline_frames.h"))
     outputs.file(linuxPlayerBridgeOutputFile)
     val src = linuxPlayerBridgeSourceFile.absolutePath
     val out = linuxPlayerBridgeOutputFile.absolutePath
@@ -936,6 +938,7 @@ val buildWindowsPlayerBridge = tasks.register<Exec>("buildWindowsPlayerBridge") 
     notCompatibleWithConfigurationCache("Builds a host-local player bridge against WebView2 and libmpv for Windows.")
     enabled = isWindowsHost
     inputs.file(windowsPlayerBridgeSource)
+    inputs.file(layout.projectDirectory.file("src/desktopMain/native/timeline_frames.h"))
     if (windowsWebView2IncludeDir.exists()) {
         inputs.dir(windowsWebView2IncludeDir)
     }

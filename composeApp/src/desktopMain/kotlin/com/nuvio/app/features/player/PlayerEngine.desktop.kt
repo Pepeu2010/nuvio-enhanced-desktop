@@ -160,7 +160,10 @@ private fun NativePlayerSurface(
     val bookmarkState by bookmarks.state.collectAsState()
     val visibleBookmarkState = bookmarkState.takeIf { it.scope == requestedBookmarkScope }
         ?: DesktopSceneBookmarkPanelState(requestedBookmarkScope, loading = requestedBookmarkScope != null)
-    SideEffect { bookmarkScopes.value = requestedBookmarkScope }
+    SideEffect {
+        bookmarkScopes.value = requestedBookmarkScope
+        controller.configureTimelineFrames(requestedBookmarkScope, sourceUrl, playbackHeaders)
+    }
     LaunchedEffect(requestedBookmarkScope) { bookmarkDialogOpen.value = false }
     val mergedControls = playerControlsState.copy(
         showSceneBookmarks = requestedBookmarkScope != null,
@@ -194,6 +197,7 @@ private fun NativePlayerSurface(
             hostFirstFullSizePaintComplete.value = true
         }
         onDispose {
+            controller.closeTimelineFrames()
             DesktopPlayerPictureInPicture.release()
             host.onDisplayableChanged = null
             host.onFirstPaint = null

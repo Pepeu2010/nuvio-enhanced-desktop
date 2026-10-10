@@ -47,6 +47,10 @@ internal object NativePlayerBridge {
     ): Long
 
     external fun dispose(handle: Long)
+    external fun createTimelineWorker(sourceUrl: String, headerLines: Array<String>): Long
+    external fun captureTimelineFrame(worker: Long, positionMs: Long): ByteArray?
+    external fun cancelTimelineWorker(worker: Long)
+    external fun disposeTimelineWorker(worker: Long)
     external fun updateControls(handle: Long, controlsJson: String)
 
     /** macOS only: title, episode line, and poster for the system now-playing widget (Control Center). */
