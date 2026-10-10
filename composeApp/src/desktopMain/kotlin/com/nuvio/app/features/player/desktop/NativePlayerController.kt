@@ -85,6 +85,8 @@ internal class NativePlayerController(
 
     @Volatile
     private var handle: Long = 0L
+    @Volatile
+    private var openedSource: PendingSource? = null
 
     /** Native teardown of the previous player, if one is still running. */
     @Volatile
@@ -316,6 +318,7 @@ internal class NativePlayerController(
                     val accepted = synchronized(lifecycleLock) {
                         if (!releaseRequested && terminalReleaseFailure == null && pendingSource === pending) {
                             handle = created
+                            openedSource = pending
                             true
                         } else {
                             false
@@ -717,12 +720,23 @@ internal class NativePlayerController(
                 positionMs = NativePlayerBridge.positionMs(current),
                 bufferedPositionMs = NativePlayerBridge.bufferedPositionMs(current),
                 playbackSpeed = NativePlayerBridge.speed(current),
+                embeddedChapters = currentEmbeddedChapters(current),
             )
         }.getOrDefault(PlayerPlaybackSnapshot(isLoading = true))
     }
 
     fun releaseBeforeNavigation(onReleased: () -> Unit) {
         releaseBeforeNavigation(onReleased, onReleaseFailed = {})
+    }
+
+    private fun currentEmbeddedChapters(current: Long): com.nuvio.app.features.player.metadata.EmbeddedChapterSnapshot {
+        val owner = openedSource
+        if (owner == null || pendingSource !== owner || releaseRequested || current != handle) {
+            return com.nuvio.app.features.player.metadata.EmbeddedChapterSnapshot()
+        }
+        val decoded = decodeEmbeddedChapters(NativePlayerBridge.embeddedChaptersBytes(current))
+        return if (current == handle && openedSource === owner && pendingSource === owner && !releaseRequested) decoded
+            else com.nuvio.app.features.player.metadata.EmbeddedChapterSnapshot()
     }
 
     override fun releaseBeforeNavigation(

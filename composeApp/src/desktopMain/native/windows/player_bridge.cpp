@@ -70,6 +70,7 @@ typedef struct mpv_event {
 }
 
 #include "../mpv_header_fields.h"
+#include "../mpv_chapters.h"
 
 namespace {
 
@@ -1205,6 +1206,11 @@ public:
 
     std::string audioTracksJson() {
         return tracksJsonForType("audio");
+    }
+
+    std::string embeddedChaptersJson() {
+        std::lock_guard<std::mutex> lock(mpvMutex);
+        return telumia_chapters::snapshot(mpv, mpvApi().getProperty, mpvApi().freeNode);
     }
 
     std::string subtitleTracksJson() {
@@ -2783,6 +2789,12 @@ extern "C" JNIEXPORT jlong JNICALL
 Java_com_nuvio_app_features_player_desktop_NativePlayerBridge_durationMs(JNIEnv *, jobject, jlong handle) {
     auto player = playerFromHandle(handle);
     return player ? player->durationMs() : 0;
+}
+
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_com_nuvio_app_features_player_desktop_NativePlayerBridge_embeddedChaptersBytes(JNIEnv *env, jobject, jlong handle) {
+    auto player = playerFromHandle(handle);
+    return player ? telumia_chapters::bytes(env, player->embeddedChaptersJson()) : nullptr;
 }
 
 extern "C" JNIEXPORT jlong JNICALL

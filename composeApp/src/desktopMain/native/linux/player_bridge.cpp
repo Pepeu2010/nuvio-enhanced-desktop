@@ -35,6 +35,7 @@
 #include <thread>
 #include <vector>
 #include "../mpv_header_fields.h"
+#include "../mpv_chapters.h"
 
 // Diagnostic logging is opt-in via NUVIO_BRIDGE_DEBUG=1 so a normal run is quiet;
 // genuine errors always log via NUVIO_ERR.
@@ -1858,6 +1859,12 @@ JNIEXPORT jstring JNICALL NP(audioTracksJson)(JNIEnv *env, jobject, jlong handle
     Player *p = asPlayer(handle);
     if (!p) return utf8ToJstring(env, "[]");
     return utf8ToJstring(env, buildTracksJson(p->mpv, "audio"));
+}
+
+JNIEXPORT jbyteArray JNICALL NP(embeddedChaptersBytes)(JNIEnv *env, jobject, jlong handle) {
+    Player *p = asPlayer(handle);
+    return p ? telumia_chapters::bytes(env,
+        telumia_chapters::snapshot(p->mpv, mpv_get_property, mpv_free_node_contents)) : nullptr;
 }
 
 JNIEXPORT jstring JNICALL NP(subtitleTracksJson)(JNIEnv *env, jobject, jlong handle) {

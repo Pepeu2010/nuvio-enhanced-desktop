@@ -232,6 +232,8 @@ data class PlayerPlaybackSnapshot(
     val playbackSpeed: Float = 1f,
     val videoWidth: Int = 0,
     val videoHeight: Int = 0,
+    val embeddedChapters: com.nuvio.app.features.player.metadata.EmbeddedChapterSnapshot =
+        com.nuvio.app.features.player.metadata.EmbeddedChapterSnapshot(),
 )
 
 data class PlayerNowPlayingInfo(

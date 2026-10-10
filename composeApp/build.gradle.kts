@@ -741,6 +741,7 @@ val buildMacosPlayerBridge = tasks.register<Exec>("buildMacosPlayerBridge") {
     inputs.file(macosPlayerBridgeSource)
     inputs.file(layout.projectDirectory.file("src/desktopMain/native/timeline_frames.h"))
     inputs.file(layout.projectDirectory.file("src/desktopMain/native/mpv_header_fields.h"))
+    inputs.file(layout.projectDirectory.file("src/desktopMain/native/mpv_chapters.h"))
     inputs.file(bundledMacosLibmpvDylib)
     inputs.dir(macosLibmpvHeaders)
     outputs.file(macosPlayerBridgeOutput)
@@ -763,6 +764,7 @@ val buildLinuxPlayerBridge = tasks.register<Exec>("buildLinuxPlayerBridge") {
     inputs.file(linuxPlayerBridgeSourceFile)
     inputs.file(layout.projectDirectory.file("src/desktopMain/native/timeline_frames.h"))
     inputs.file(layout.projectDirectory.file("src/desktopMain/native/mpv_header_fields.h"))
+    inputs.file(layout.projectDirectory.file("src/desktopMain/native/mpv_chapters.h"))
     outputs.file(linuxPlayerBridgeOutputFile)
     val src = linuxPlayerBridgeSourceFile.absolutePath
     val out = linuxPlayerBridgeOutputFile.absolutePath
@@ -942,6 +944,7 @@ val buildWindowsPlayerBridge = tasks.register<Exec>("buildWindowsPlayerBridge") 
     inputs.file(windowsPlayerBridgeSource)
     inputs.file(layout.projectDirectory.file("src/desktopMain/native/timeline_frames.h"))
     inputs.file(layout.projectDirectory.file("src/desktopMain/native/mpv_header_fields.h"))
+    inputs.file(layout.projectDirectory.file("src/desktopMain/native/mpv_chapters.h"))
     if (windowsWebView2IncludeDir.exists()) {
         inputs.dir(windowsWebView2IncludeDir)
     }

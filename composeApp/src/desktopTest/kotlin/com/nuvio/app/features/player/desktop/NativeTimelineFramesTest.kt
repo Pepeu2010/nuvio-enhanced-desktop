@@ -22,6 +22,47 @@ import kotlin.test.assertTrue
 
 /** Uses the packaged JNI bridge and actual bundled libmpv, not a simulated seek callback. */
 class NativeTimelineFramesTest {
+    @Test fun actualWindowsFileChaptersPreserveUtf8AndIntegrateWithTimedMetadata() {
+        org.junit.Assume.assumeTrue("Windows native chapter integration gate", DesktopHostOs.current == DesktopHostOs.WINDOWS)
+        val file = Files.createTempFile("telumia-chapters-á-", ".mkv")
+        Files.write(file, originalChapterMatroska())
+        val frame = javax.swing.JFrame("Telumia owned chapter fixture")
+        val host = NativePlayerHost()
+        var primary = 0L
+        var worker = 0L
+        try {
+            javax.swing.SwingUtilities.invokeAndWait {
+                frame.contentPane.add(host); frame.setSize(640, 360); frame.addNotify(); frame.validate()
+            }
+            primary = NativePlayerBridge.create(AwtNativeViewResolver.resolveNativeViewPointer(host), file.toString(),
+                emptyArray(), false, 0, NativePlayerBridge.controlsPageUrl, 1, false, NativePlayerEventSink { _, _ -> })
+            assertTrue(primary != 0L)
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(12)
+            var chapters = decodeEmbeddedChapters(null)
+            while (System.nanoTime() < deadline) {
+                chapters = decodeEmbeddedChapters(NativePlayerBridge.embeddedChaptersBytes(primary))
+                if (chapters.chapters.size == 2 && NativePlayerBridge.durationMs(primary) == 6000L) break
+                Thread.sleep(25)
+            }
+            assertTrue(chapters.complete)
+            assertEquals(listOf(0L, 3000L), chapters.chapters.map { it.startMs })
+            assertEquals(listOf("Introdução \"Café\"\nlocal", "Final 😀"), chapters.chapters.map { it.title })
+            val timeline = com.nuvio.app.features.player.metadata.embeddedChapterTimedMetadata(
+                com.nuvio.app.features.player.metadata.TimedMetadataScope("fixture", "movie", "fixture", "original"), chapters, 6000)
+            assertEquals(listOf(3000L, 6000L), timeline.events.map { it.endMs })
+            assertEquals("Final 😀", (timeline.eventsAt(3000).single().body as com.nuvio.app.features.player.metadata.TimedMetadataBody.Chapter).title)
+            assertTrue(timeline.sceneEventsAt(3000).isEmpty())
+            worker = NativePlayerBridge.createTimelineWorker(file.toString(), emptyArray())
+            val captured = assertNotNull(NativePlayerBridge.captureTimelineFrame(worker, 3500))
+            assertNotNull(DesktopTimelineFrames.decode(captured, 3500, 6000))
+        } finally {
+            if (worker != 0L) NativePlayerBridge.disposeTimelineWorker(worker)
+            if (primary != 0L) NativePlayerBridge.dispose(primary)
+            javax.swing.SwingUtilities.invokeAndWait { frame.dispose() }
+            Files.delete(file)
+        }
+    }
+
     @Test fun actualWindowsPrimaryPlayerPreservesHttpHeadersAndPreviewDoesNotSeekPlayback() {
         org.junit.Assume.assumeTrue("Windows native player integration gate", DesktopHostOs.current == DesktopHostOs.WINDOWS)
         val bytes = originalAvi()

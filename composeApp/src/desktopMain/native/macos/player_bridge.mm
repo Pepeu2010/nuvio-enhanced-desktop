@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include "../mpv_header_fields.h"
+#include "../mpv_chapters.h"
 
 #ifndef NX_SUBTYPE_AUX_CONTROL_BUTTONS
 #define NX_SUBTYPE_AUX_CONTROL_BUTTONS 8
@@ -115,6 +116,7 @@ static constexpr double kMaxVolumePercent = 200.0;
 - (BOOL)isLoading;
 - (BOOL)isEnded;
 - (NSString *)audioTracksJson;
+- (NSData *)embeddedChaptersData;
 - (NSString *)subtitleTracksJson;
 - (void)selectAudioTrackId:(int)trackId;
 - (void)selectSubtitleTrackId:(int)trackId;
@@ -2185,6 +2187,11 @@ static void nuvioMpvWakeup(void *ctx) {
     return [self tracksJsonForType:@"audio"];
 }
 
+- (NSData *)embeddedChaptersData {
+    const std::string json = telumia_chapters::snapshot(_mpv, mpv_get_property, mpv_free_node_contents);
+    return [NSData dataWithBytes:json.data() length:json.size()];
+}
+
 - (NSString *)subtitleTracksJson {
     return [self tracksJsonForType:@"sub"];
 }
@@ -3293,6 +3300,18 @@ Java_com_nuvio_app_features_player_desktop_NativePlayerBridge_audioTracksJson(
     MpvWebPlayer *player = (__bridge MpvWebPlayer *)(void *)(intptr_t)handle;
     NSString *json = [player audioTracksJson] ?: @"[]";
     return env->NewStringUTF(json.UTF8String);
+}
+
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_com_nuvio_app_features_player_desktop_NativePlayerBridge_embeddedChaptersBytes(JNIEnv *env, jobject, jlong handle) {
+    if (handle == 0) return nullptr;
+    MpvWebPlayer *player = (__bridge MpvWebPlayer *)(void *)(intptr_t)handle;
+    NSData *data = [player embeddedChaptersData];
+    if (!data || data.length > 1024 * 1024) return nullptr;
+    auto result = env->NewByteArray(static_cast<jsize>(data.length));
+    if (result) env->SetByteArrayRegion(result, 0, static_cast<jsize>(data.length),
+        reinterpret_cast<const jbyte *>(data.bytes));
+    return result;
 }
 
 extern "C" JNIEXPORT jstring JNICALL

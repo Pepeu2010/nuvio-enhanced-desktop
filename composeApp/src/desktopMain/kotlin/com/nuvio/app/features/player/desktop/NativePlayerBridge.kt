@@ -80,6 +80,7 @@ internal object NativePlayerBridge {
     external fun isPaused(handle: Long): Boolean
     external fun speed(handle: Long): Float
     external fun audioTracksJson(handle: Long): String
+    external fun embeddedChaptersBytes(handle: Long): ByteArray?
     external fun subtitleTracksJson(handle: Long): String
     external fun selectAudioTrack(handle: Long, trackId: Int)
     external fun selectSubtitleTrack(handle: Long, trackId: Int)
