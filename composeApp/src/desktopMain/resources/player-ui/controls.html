@@ -137,6 +137,14 @@
     </section>
     <div class="content">
       <header class="header">
+        <section class="metadata" aria-label="Playback metadata">
+          <div class="title" id="title"></div>
+          <div class="episode" id="episode" hidden></div>
+          <div class="meta-row">
+            <span class="stream-title" id="streamTitle"></span>
+            <span class="provider" id="providerName"></span>
+          </div>
+        </section>
         <nav class="header-actions" aria-label="Player actions">
           <button class="header-button" id="submitIntroButton" data-command="submitIntro" aria-label="Submit intro"><svg><use href="#icon-flag"></use></svg></button>
           <button class="header-button" id="videoSettingsButton" data-command="videoSettings" aria-label="Video settings"><svg><use href="#icon-build"></use></svg></button>
@@ -203,14 +211,6 @@
       </button>
 
       <section class="progress" aria-label="Playback progress">
-        <section class="metadata" aria-label="Playback metadata">
-          <div class="title" id="title"></div>
-          <div class="episode" id="episode" hidden></div>
-          <div class="meta-row">
-            <span class="stream-title" id="streamTitle"></span>
-            <span class="provider" id="providerName"></span>
-          </div>
-        </section>
         <div class="seek-container">
           <div id="timelinePreview" class="timeline-preview" hidden>
             <img id="timelinePreviewImage" alt="" hidden>

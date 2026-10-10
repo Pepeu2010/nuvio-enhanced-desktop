@@ -402,18 +402,20 @@ button:disabled {
   left: var(--hp);
   right: var(--hp);
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: flex-start;
   gap: 18px;
 }
 
 .metadata {
   min-width: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0;
   opacity: 1;
-  padding: 0 0 10px;
+  padding: 4px 0 4px 16px;
+  border-left: 3px solid var(--theme-accent);
 }
 
 .title {
@@ -482,7 +484,7 @@ button:disabled {
 
 .parental-guide {
   position: absolute;
-  top: calc(var(--slider-bottom) + env(safe-area-inset-top));
+  top: calc(var(--slider-bottom) + 116px + env(safe-area-inset-top));
   left: var(--hp);
   z-index: 5;
   display: flex;
@@ -1566,16 +1568,21 @@ button:disabled {
 
 .progress {
   position: absolute;
-  left: var(--hp);
-  right: var(--hp);
+  left: max(var(--hp), calc((100% - 1760px) / 2));
+  right: max(var(--hp), calc((100% - 1760px) / 2));
   bottom: var(--slider-bottom);
   display: flex;
   flex-direction: column;
+  padding: 18px 20px 14px;
+  border: 1px solid var(--theme-border-default);
+  border-radius: 20px;
+  background: rgba(12, 17, 24, .94);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .32);
 }
 
 .scrub {
   width: 100%;
-  height: 10px;
+  height: 16px;
   display: block;
   padding: 0;
   transform: none;
@@ -1587,7 +1594,7 @@ button:disabled {
 }
 
 .scrub::-webkit-slider-runnable-track {
-  height: 10px;
+  height: 6px;
   border-radius: 999px;
   background:
     var(--theme-accent-gradient, linear-gradient(var(--theme-timeline-fill), var(--theme-timeline-fill)))
@@ -1597,13 +1604,13 @@ button:disabled {
 
 .scrub::-webkit-slider-thumb {
   appearance: none;
-  width: 10px;
-  height: 10px;
-  margin-top: 0;
+  width: 12px;
+  height: 12px;
+  margin-top: -3px;
   border-radius: 999px;
-  background: transparent;
+  background: var(--theme-timeline-fill);
   box-shadow: none;
-  opacity: 0;
+  opacity: 1;
 }
 
 .scrub:active::-webkit-slider-thumb {
@@ -1833,7 +1840,7 @@ button:disabled {
     place-items: center;
     gap: 0;
     padding: 0;
-    border-radius: 999px;
+    border-radius: 12px;
     transform-origin: center;
   }
 
@@ -3489,7 +3496,7 @@ svg {
 .seek-container { position: relative; width: 100%; }
 .timed-markers { position: absolute; inset: 0 5px; pointer-events: none; }
 .timed-markers[hidden] { display: none; }
-.timed-marker { position: absolute; top: 3.5px; height: 3px; background: #ebb874; }
+.timed-marker { position: absolute; top: 6.5px; height: 3px; background: #ebb874; }
 .timed-marker::before { content: ""; position: absolute; top: -3.5px; left: -1px; width: 2px; height: 10px; background: inherit; }
 .timed-marker[data-kind="CREDITS"], .timed-marker[data-kind="POST_CREDITS"] { background: #93a3be; }
 .timed-marker[data-kind="CHAPTER"] { background: #fff; }
@@ -3510,3 +3517,17 @@ svg {
 .timeline-filmstrip-frame.selected { border-color: #8fc8fa; background: #223d55; }
 .timeline-filmstrip-frame img { width: 100%; max-height: 72px; border-radius: 3px; }
 .timeline-filmstrip-frame span { display: block; padding-top: 4px; color: #eef3f8; font-size: 11px; font-variant-numeric: tabular-nums; }
+
+/* The playback dock stays compact in PiP; the regular desktop layout keeps its own hierarchy. */
+.player.pip-mode .progress { left: 10px; right: 10px; bottom: 10px; padding: 10px; border-radius: 12px; }
+@media (min-width: 761px) {
+  .action.playback-action { display: flex; width: auto; gap: 10px; padding: 0 18px; }
+  .action.playback-action span { display: block; font-size: 13px; }
+  .header-actions { flex: 0 0 auto; }
+}
+@media (max-width: 760px) {
+  .metadata { padding-left: 10px; }
+  .progress { padding: 12px; border-radius: 14px; }
+}
+.player.pip-mode .action.playback-action { width: 40px; min-width: 40px; padding: 0; display: grid; }
+.player.pip-mode .action.playback-action span { display: none; }
