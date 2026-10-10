@@ -81,6 +81,7 @@ Java_com_nuvio_app_features_player_desktop_NativePlayerBridge_createTimelineWork
     JNIEnv *env, jobject, jstring source, jobjectArray headers) {
     using namespace telumia_frames;
     try {
+        if (!telumia_headers::validJavaHeaders(env, headers)) return 0;
         auto api = platformApi();
         if (!api.commandRet || !api.freeNode) return 0; // Unsupported runtime leaves playback intact.
         auto worker = std::make_shared<Worker>();

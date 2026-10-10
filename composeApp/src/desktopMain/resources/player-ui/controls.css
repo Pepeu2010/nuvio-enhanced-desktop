@@ -3522,7 +3522,7 @@ svg {
 .player.pip-mode .progress { left: 10px; right: 10px; bottom: 10px; padding: 10px; border-radius: 12px; }
 @media (min-width: 761px) {
   .action.playback-action { display: flex; width: auto; gap: 10px; padding: 0 18px; }
-  .action.playback-action span { display: block; font-size: 13px; }
+  .action.playback-action span { display: block; position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; font-size: 13px; }
   .header-actions { flex: 0 0 auto; }
 }
 @media (max-width: 760px) {

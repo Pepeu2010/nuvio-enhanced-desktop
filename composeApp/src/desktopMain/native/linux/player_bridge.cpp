@@ -1517,6 +1517,11 @@ JNIEXPORT jlong JNICALL NP(create)(
     jstring controlsPageUrl, jint decoderPriority,
     jboolean /*nvidiaRtxSuperResolutionEnabled*/, jobject eventSink) {
 
+    if (!telumia_headers::validJavaHeaders(env, headerLines)) {
+        telumia_headers::rejectInvalidJavaHeaders(env);
+        return 0;
+    }
+
     // libmpv requires LC_NUMERIC=C (e.g. non-"C" locales with comma
     // decimals make mpv_create fail); the JVM uses java.util.Locale, so
     // this C-level change does not affect Java number formatting.

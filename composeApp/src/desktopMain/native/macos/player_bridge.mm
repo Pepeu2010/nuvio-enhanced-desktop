@@ -2931,6 +2931,10 @@ Java_com_nuvio_app_features_player_desktop_NativePlayerBridge_create(
     jboolean nvidiaRtxSuperResolutionEnabled,
     jobject eventSink
 ) {
+    if (!telumia_headers::validJavaHeaders(env, headerLines)) {
+        telumia_headers::rejectInvalidJavaHeaders(env);
+        return 0;
+    }
     NSView *hostView = (__bridge NSView *)(void *)(intptr_t)hostViewPtr;
     if (!hostView) {
         throwJavaError(env, @"Unable to resolve the AWT host NSView for native playback.");

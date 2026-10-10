@@ -27,9 +27,11 @@ class NativeTimelineFramesTest {
         val bytes = originalAvi()
         val header = "alpha,beta\\tail"
         val accepted = AtomicInteger()
+        val requests = AtomicInteger()
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/primary.avi") { exchange ->
             try {
+                requests.incrementAndGet()
                 if (exchange.requestHeaders.getFirst("X-Telumia-Fixture") != header) {
                     exchange.sendResponseHeaders(403, -1); return@createContext
                 }
@@ -71,6 +73,14 @@ class NativeTimelineFramesTest {
             }
             val source = "http://127.0.0.1:${server.address.port}/primary.avi"
             val headers = arrayOf("X-Telumia-Fixture: $header")
+            for (unsafe in listOf("X-Fixture: value\r\nX-Injected: value", "X-Fixture: value\u0000tail")) {
+                val rejected = kotlin.test.assertFailsWith<IllegalStateException> {
+                    NativePlayerBridge.create(AwtNativeViewResolver.resolveNativeViewPointer(host), source,
+                        arrayOf(unsafe), false, 0, NativePlayerBridge.controlsPageUrl, 1, false, NativePlayerEventSink { _, _ -> })
+                }
+                assertEquals("Invalid HTTP headers", rejected.message)
+            }
+            assertEquals(0, requests.get(), "Rejected headers must not issue even an unauthenticated HTTP request")
             primary = NativePlayerBridge.create(AwtNativeViewResolver.resolveNativeViewPointer(host), source, headers,
                 false, 0, NativePlayerBridge.controlsPageUrl, 1, false, NativePlayerEventSink { _, _ -> })
             assertTrue(primary != 0L)

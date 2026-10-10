@@ -2354,6 +2354,10 @@ Java_com_nuvio_app_features_player_desktop_NativePlayerBridge_create(
     jboolean nvidiaRtxSuperResolutionEnabled,
     jobject eventSink
 ) {
+    if (!telumia_headers::validJavaHeaders(env, headerLines)) {
+        telumia_headers::rejectInvalidJavaHeaders(env);
+        return 0;
+    }
     HWND hostHwnd = (HWND)(intptr_t)hostViewPtr;
     std::string sourceUrlText = jstringToUtf8(env, sourceUrl);
     std::vector<std::string> headerLineValues = jstringArrayToVector(env, headerLines);
