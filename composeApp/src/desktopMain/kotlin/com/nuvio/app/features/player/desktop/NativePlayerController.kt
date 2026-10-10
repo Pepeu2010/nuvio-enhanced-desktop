@@ -544,10 +544,10 @@ internal class NativePlayerController(
             log.d { "event received handle=$handle type=$type value=$value" }
         }
         when (type) {
-            "timelinePreview" -> {
+            "timelinePreview", "timelineFilmstrip" -> {
                 if (value.isFinite() && value >= 0 && !DesktopPlayerPictureInPicture.isEnabled && timelineConfiguration?.first != null) {
                     val playback = snapshot()
-                    if (!playback.isLoading) timelineFrames?.request(value.toLong(), playback.durationMs)
+                    if (!playback.isLoading) timelineFrames?.request(value.toLong(), playback.durationMs, type == "timelineFilmstrip")
                 }
             }
             "timelinePreviewClear" -> { timelineFrames?.clear(); timelineFrame = null }
@@ -1297,6 +1297,11 @@ internal fun PlayerControlsState.toControlsJson(isFullscreen: Boolean, timelineE
         appendJsonField("timelinePreviewActualMs", timelineFrame?.decodedPositionMs ?: -1L)
         append(',')
         appendJsonField("timelinePreviewImage", timelineFrame?.pngDataUri.orEmpty())
+        append(',')
+        appendJsonArrayField("timelinePreviewFrames", timelineFrame?.filmstrip.orEmpty().take(5)) { frame ->
+            append('{'); appendJsonField("positionMs", frame.decodedPositionMs)
+            append(','); appendJsonField("image", frame.pngDataUri); append('}')
+        }
         append(',')
         appendJsonField("episodeText", episodeText)
         append(',')

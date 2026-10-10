@@ -68,4 +68,41 @@ class DesktopTimelineFramesTest {
             cachedWorker.request(500, 6000); assertTrue(failed.await(5, TimeUnit.SECONDS))
         } finally { cachedWorker.close() }
     }
+
+    @Test fun filmstripUsesOnlyAvailableOrderedNeighborsAndItsOwnBoundedCache() {
+        assertEquals(listOf(0L,1500L,3000L), DesktopTimelineFrames.neighborPositions(0,6000))
+        assertEquals(listOf(0L,1500L,3000L,4500L), DesktopTimelineFrames.neighborPositions(3000,6000))
+        assertEquals(listOf(2500L,4000L,5500L), DesktopTimelineFrames.neighborPositions(5500,6000))
+        val thumbnails = BoundedFileCache(Files.createTempDirectory("timeline-center"), { 1048576L })
+        val filmDirectory = Files.createTempDirectory("timeline-strip")
+        val filmCache = BoundedFileCache(filmDirectory, { 1048576L })
+        val delivered=CountDownLatch(1)
+        var result: TimelineFrame? = null
+        val worker=DesktopTimelineFrames(deliver={_,frame,current-> if(current() && frame?.filmstrip?.isNotEmpty()==true) { result=frame;delivered.countDown() } },
+            create={_,_->1L},capture={_,position->if(position==1500L) null else raw(position)},cancel={},dispose={},cache={thumbnails},filmstripCache={filmCache})
+        try {
+            worker.configure(scope(),"original-video",emptyList());worker.request(3000,6000,filmstrip=true)
+            assertTrue(delivered.await(5,TimeUnit.SECONDS))
+            val frame=assertNotNull(result)
+            assertEquals(3000L,frame.decodedPositionMs)
+            assertEquals(listOf(0L,3000L,4500L),frame.filmstrip.map { it.decodedPositionMs })
+            assertTrue(frame.filmstrip.all { it.filmstrip.isEmpty() })
+            assertEquals(2L,Files.list(filmDirectory).use { it.count() })
+        } finally { worker.close() }
+    }
+
+    @Test fun continuousPositionChangesConflateWithoutRestartingInitialLoad() {
+        val entered=CountDownLatch(1);val release=CountDownLatch(1);val finished=CountDownLatch(1)
+        val cancels=AtomicInteger();val calls=java.util.concurrent.CopyOnWriteArrayList<Long>()
+        val cache=BoundedFileCache(Files.createTempDirectory("timeline-conflated"),{1048576L})
+        val worker=DesktopTimelineFrames(deliver={_,frame,current->if(current()&&frame?.requestedMs==4500L) finished.countDown()},
+            create={_,_->1L},capture={_,position-> calls+=position;if(calls.size==1){entered.countDown();assertTrue(release.await(5,TimeUnit.SECONDS))};raw(position)},
+            cancel={cancels.incrementAndGet()},dispose={},cache={cache})
+        try {
+            worker.configure(scope(),"original-video",emptyList());worker.request(500,6000);assertTrue(entered.await(5,TimeUnit.SECONDS))
+            for(position in listOf(1000L,2000L,3000L,4500L)) worker.request(position,6000)
+            assertEquals(0,cancels.get());release.countDown();assertTrue(finished.await(5,TimeUnit.SECONDS))
+            assertEquals(listOf(500L,4500L),calls.toList());worker.clear();assertEquals(1,cancels.get())
+        } finally { release.countDown();worker.close() }
+    }
 }

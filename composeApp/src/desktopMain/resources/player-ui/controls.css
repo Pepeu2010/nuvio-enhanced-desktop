@@ -3502,3 +3502,11 @@ svg {
 .timeline-preview img { display: block; width: 100%; max-height: 180px; object-fit: contain; border-radius: 6px; }
 .timeline-preview output { display: block; padding: 5px 0 1px; font-variant-numeric: tabular-nums; color: #f8fafc; font-size: 14px; }
 .player.pip .timeline-preview { display: none; }
+
+.timeline-preview > img { max-width: 320px; margin: 0 auto; }
+.timeline-filmstrip { display: flex; gap: 4px; margin-top: 8px; }
+.timeline-filmstrip[hidden] { display: none; }
+.timeline-filmstrip-frame { flex: 1; min-width: 0; padding: 3px; border: 1px solid transparent; border-radius: 5px; }
+.timeline-filmstrip-frame.selected { border-color: #8fc8fa; background: #223d55; }
+.timeline-filmstrip-frame img { width: 100%; max-height: 72px; border-radius: 3px; }
+.timeline-filmstrip-frame span { display: block; padding-top: 4px; color: #eef3f8; font-size: 11px; font-variant-numeric: tabular-nums; }

@@ -3,17 +3,26 @@ const seek = document.getElementById("seek");
 const timelinePreview = document.getElementById("timelinePreview");
 const timelinePreviewImage = document.getElementById("timelinePreviewImage");
 const timelinePreviewTime = document.getElementById("timelinePreviewTime");
+const timelineFilmstrip = document.getElementById("timelineFilmstrip");
 let timelinePreviewTarget = -1;
 let timelinePreviewTimer = null;
 let timelinePreviewLastRequested = -1;
+let timelinePreviewLastFilmstrip = false;
+let timelineScrubStartedAt = 0;
+let timelineFilmstripTimer = null;
 const clearTimelinePreview = () => {
   window.clearTimeout(timelinePreviewTimer);
+  window.clearTimeout(timelineFilmstripTimer);
   timelinePreviewTimer = null;
   timelinePreviewTarget = -1;
   timelinePreviewLastRequested = -1;
+  timelinePreviewLastFilmstrip = false;
+  timelineScrubStartedAt = 0;
   timelinePreview.hidden = true;
   timelinePreviewImage.hidden = true;
   timelinePreviewImage.removeAttribute("src");
+  timelineFilmstrip.hidden = true;
+  timelineFilmstrip.replaceChildren();
   send("timelinePreviewClear", 0);
 };
 const renderTimelinePreview = () => {
@@ -34,23 +43,47 @@ const renderTimelinePreview = () => {
     timelinePreviewImage.removeAttribute("src");
     timelinePreviewTime.textContent = formatTime(timelinePreviewTarget);
   }
+  const frames = matches && validImage && isScrubbing && performance.now()-timelineScrubStartedAt>=600 &&
+    Array.isArray(state.timelinePreviewFrames) ? state.timelinePreviewFrames.slice(0,5) : [];
+  const seen = new Set();
+  const validFrames = frames.filter(frame => {
+    const time=Number(frame.positionMs),png=String(frame.image||'');
+    if (!Number.isFinite(time)||time<0||time>=state.durationMs||Math.abs(time-timelinePreviewTarget)>5000||seen.has(time)||
+        png.length>320000||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(png)) return false;
+    seen.add(time);return true;
+  }).sort((a,b)=>a.positionMs-b.positionMs);
+  timelineFilmstrip.replaceChildren();
+  timelineFilmstrip.hidden = validFrames.length < 3;
+  if (validFrames.length >= 3) for (const frame of validFrames) {
+    const tile=document.createElement('div');tile.className='timeline-filmstrip-frame';
+    if (Number(frame.positionMs)===actual) tile.classList.add('selected');
+    const picture=document.createElement('img');picture.alt='';picture.src=frame.image;
+    const time=document.createElement('span');time.textContent=formatTime(frame.positionMs);
+    tile.append(picture,time);timelineFilmstrip.append(tile);
+  }
+  positionTimelinePreview();
+};
+const positionTimelinePreview = () => {
+  const width = seek.getBoundingClientRect().width;
+  const previewWidth = Math.min(timelineFilmstrip.hidden ? 320 : 560, Math.max(160, width));
+  timelinePreview.style.width = `${previewWidth}px`;
+  timelinePreview.style.left = `${Math.max(previewWidth / 2, Math.min(width - previewWidth / 2, timelinePreviewTarget / state.durationMs * width))}px`;
 };
 const requestTimelinePreview = positionMs => {
   if (!state.timelinePreviewEnabled || state.isInPip || state.isLoading || !(state.durationMs > 0) || activeModal) return;
   const target = Math.floor(Math.max(0, Math.min(state.durationMs - 1, positionMs)) / 250) * 250;
   timelinePreviewTarget = target;
   timelinePreview.hidden = false;
-  const width = seek.getBoundingClientRect().width;
-  const previewWidth = Math.min(320, Math.max(160, width));
-  timelinePreview.style.width = `${previewWidth}px`;
-  timelinePreview.style.left = `${Math.max(previewWidth / 2, Math.min(width - previewWidth / 2, target / state.durationMs * width))}px`;
   renderTimelinePreview();
-  window.clearTimeout(timelinePreviewTimer);
-  if (target === timelinePreviewLastRequested) return;
+  if (timelinePreviewTimer !== null) return;
   timelinePreviewTimer = window.setTimeout(() => {
-    if (timelinePreviewTarget !== target) return;
-    timelinePreviewLastRequested = target;
-    send("timelinePreview", target);
+    timelinePreviewTimer = null;
+    if (timelinePreviewTarget < 0 || activeModal || state.isInPip || !state.timelinePreviewEnabled) return;
+    const filmstrip = isScrubbing && timelineScrubStartedAt > 0 && performance.now()-timelineScrubStartedAt >= 600;
+    if (timelinePreviewTarget === timelinePreviewLastRequested && filmstrip === timelinePreviewLastFilmstrip) return;
+    timelinePreviewLastRequested = timelinePreviewTarget;
+    timelinePreviewLastFilmstrip = filmstrip;
+    send(filmstrip ? "timelineFilmstrip" : "timelinePreview", timelinePreviewTarget);
   }, 120);
 };
 const positionLabel = document.getElementById("position");
@@ -1099,6 +1132,7 @@ const openPlayerModal = modal => {
     return;
   }
   activeModal = modal;
+  clearTimelinePreview();
   if (modal === "submitIntro") {
     const contentKey = state.submitIntroContentKey || "";
     if (submitIntroDraft.contentKey !== contentKey) {
@@ -3077,6 +3111,10 @@ nextEpisodeCard.addEventListener("click", event => {
 
 seek.addEventListener("input", () => {
   noteChromeActivity();
+  if (!isScrubbing) {
+    timelineScrubStartedAt = performance.now();
+    timelineFilmstripTimer = window.setTimeout(() => { if (isScrubbing) requestTimelinePreview(scrubPositionMs); }, 620);
+  }
   isScrubbing = true;
   scrubPositionMs = rangePositionMs();
   setProgress(scrubPositionMs, state.durationMs);
